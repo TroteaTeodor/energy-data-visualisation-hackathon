@@ -1,9 +1,9 @@
 :root {
-  --bg: #0f172a;
-  --surface: #1e293b;
-  --surface2: #334155;
-  --border: #1e293b;
-  --border2: #334155;
+  --bg: #0a0f1e;
+  --surface: rgba(30, 41, 59, 0.6);
+  --surface2: rgba(51, 65, 85, 0.4);
+  --border: rgba(30, 41, 59, 0.8);
+  --border2: rgba(51, 65, 85, 0.5);
   --text: #f1f5f9;
   --text2: #94a3b8;
   --text3: #64748b;
@@ -17,6 +17,9 @@
   --radius-sm: 6px;
   --header-h: 44px;
   --footer-h: 36px;
+  --glass: rgba(15, 23, 42, 0.75);
+  --glass-border: rgba(51, 65, 85, 0.3);
+  --blur: 16px;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -49,8 +52,10 @@ header {
   justify-content: space-between;
   padding: 0.5rem 1rem;
   padding-top: calc(0.5rem + var(--sat, 0px));
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  background: var(--glass);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+  border-bottom: 1px solid var(--glass-border);
   height: calc(var(--header-h) + var(--sat, 0px));
   flex-shrink: 0;
 }
@@ -79,8 +84,10 @@ header {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  background: var(--bg);
-  border-right: 1px solid var(--border);
+  background: var(--glass);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+  border-right: 1px solid var(--glass-border);
   scrollbar-width: thin;
   scrollbar-color: var(--surface2) transparent;
 }
@@ -93,7 +100,9 @@ main { flex: 1; position: relative; min-width: 0; }
 /* ─── Cards ─── */
 .card {
   background: var(--surface);
-  border: 1px solid var(--border2);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   padding: 0.6rem;
 }
@@ -164,10 +173,12 @@ main { flex: 1; position: relative; min-width: 0; }
   gap: 0.3rem;
 }
 #map-attribution span {
-  background: rgba(15, 23, 42, 0.85);
+  background: var(--glass);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   padding: 0.25rem 0.5rem;
   border-radius: var(--radius-sm);
-  backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
 }
 
 /* ─── Footer ─── */
@@ -179,7 +190,10 @@ footer {
   padding-bottom: var(--sab, 0px);
   font-size: 0.65rem;
   color: var(--text3);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--glass-border);
+  background: var(--glass);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
   gap: 0.35rem;
   flex-shrink: 0;
 }

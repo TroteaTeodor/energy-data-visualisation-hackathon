@@ -1,35 +1,77 @@
 import 'leaflet';
 
 let map = null;
+let gridLayer = null;
+let entryLayer = null;
 let circlesLayer = null;
-let flowLayer = null;
 let markerLayer = null;
 let legendAdded = false;
+
+// Belgian 380kV grid backbone (approximate coordinates of major lines)
+const GRID_LINES = [
+  // 380kV Ring - West side
+  { from: { lat: 51.35, lng: 4.28 }, to: { lat: 51.05, lng: 3.72 }, label: 'Zandvliet → Gent', kv: 380 },
+  { from: { lat: 51.05, lng: 3.72 }, to: { lat: 50.60, lng: 3.10 }, label: 'Gent → Avelin (FR)', kv: 380 },
+  // 380kV Ring - South side
+  { from: { lat: 50.60, lng: 3.10 }, to: { lat: 50.45, lng: 5.00 }, label: 'Avelin → Gramme', kv: 380 },
+  { from: { lat: 50.45, lng: 5.00 }, to: { lat: 50.45, lng: 4.35 }, label: 'Gramme → Bruegel', kv: 380 },
+  // 380kV Ring - East side
+  { from: { lat: 50.45, lng: 5.00 }, to: { lat: 50.75, lng: 5.70 }, label: 'Gramme → Lixhe (DE)', kv: 380 },
+  { from: { lat: 50.45, lng: 4.35 }, to: { lat: 51.00, lng: 4.15 }, label: 'Bruegel → Mercator', kv: 380 },
+  // 380kV Ring - North side
+  { from: { lat: 51.00, lng: 4.15 }, to: { lat: 51.35, lng: 4.28 }, label: 'Mercator → Zandvliet', kv: 380 },
+  { from: { lat: 51.35, lng: 4.28 }, to: { lat: 51.35, lng: 5.45 }, label: 'Zandvliet → Van Eyck (NL)', kv: 380 },
+  // 220kV branches
+  { from: { lat: 51.05, lng: 3.72 }, to: { lat: 50.95, lng: 4.35 }, label: 'Gent → Brussels', kv: 220 },
+  { from: { lat: 51.00, lng: 4.15 }, to: { lat: 50.85, lng: 4.35 }, label: 'Mercator → Brussels', kv: 220 },
+  { from: { lat: 50.45, lng: 4.35 }, to: { lat: 50.85, lng: 4.35 }, label: 'Bruegel → Brussels', kv: 220 },
+  // NemoLink (HVDC cable to UK)
+  { from: { lat: 51.20, lng: 2.80 }, to: { lat: 51.05, lng: 3.72 }, label: 'NemoLink → Gent', kv: 1000 },
+];
+
+// Entry points (border interconnections)
+const ENTRY_POINTS = [
+  { lat: 50.50, lng: 3.15, country: 'France', name: 'Avelin', cap: '~5 GW', color: '#2dd4bf' },
+  { lat: 51.35, lng: 5.50, country: 'Netherlands', name: 'Van Eyck', cap: '~3.5 GW', color: '#2dd4bf' },
+  { lat: 50.72, lng: 5.75, country: 'Germany', name: 'Lixhe / Oberzier', cap: '~2.5 GW', color: '#2dd4bf' },
+  { lat: 51.20, lng: 2.80, country: 'UK', name: 'NemoLink (HVDC)', cap: '~1 GW', color: '#f97316' },
+  { lat: 49.55, lng: 6.00, country: 'Luxembourg', name: 'Schifflange', cap: '~0.5 GW', color: '#2dd4bf' },
+];
 
 export async function initMap() {
   const container = document.getElementById('map');
   if (!container) return;
 
   map = L.map('map', {
-    center: [50.85, 4.35],
-    zoom: 10,
+    center: [50.6, 4.5],
+    zoom: 8,
     zoomControl: true,
     attributionControl: false,
   });
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  // Dark map style
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     maxZoom: 14,
+    attribution: '&copy; <a href="https://carto.com">CARTO</a>',
   }).addTo(map);
 
+  // Feature layers
+  gridLayer = L.layerGroup().addTo(map);
+  entryLayer = L.layerGroup().addTo(map);
   circlesLayer = L.layerGroup().addTo(map);
-  flowLayer = L.layerGroup().addTo(map);
   markerLayer = L.layerGroup().addTo(map);
+
+  // Draw power grid lines
+  drawPowerGrid();
+
+  // Draw entry points
+  drawEntryPoints();
 
   // Generation site markers
   const sites = [
     { lat: 51.32, lng: 4.27, label: 'Doel Nuclear', type: 'nuclear', cap: '2.9 GW' },
     { lat: 50.53, lng: 5.27, label: 'Tihange Nuclear', type: 'nuclear', cap: '3.0 GW' },
-    { lat: 51.50, lng: 2.80, label: 'North Sea Wind', type: 'wind', cap: '2.2 GW' },
+    { lat: 51.50, lng: 3.20, label: 'North Sea Wind', type: 'wind', cap: '2.2 GW' },
     { lat: 51.05, lng: 3.72, label: 'Ringvaart Gas', type: 'gas', cap: '0.9 GW' },
     { lat: 50.95, lng: 4.35, label: 'Drogenbos Gas', type: 'gas', cap: '0.5 GW' },
     { lat: 50.63, lng: 5.58, label: 'Coô Gas Plant', type: 'gas', cap: '1.1 GW' },
@@ -40,11 +82,10 @@ export async function initMap() {
 
   for (const s of sites) {
     const c = iconColors[s.type] || '#64748b';
-    const label = iconLabels[s.type] || '?';
+    const lbl = iconLabels[s.type] || '?';
     const icon = L.divIcon({
-      html: `<div style="width:22px;height:22px;border-radius:50%;background:${c};border:2px solid rgba(255,255,255,0.8);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;box-shadow:0 0 8px ${c}66">${label}</div>`,
-      className: '',
-      iconSize: [22, 22],
+      html: `<div style="width:20px;height:20px;border-radius:50%;background:${c};border:2px solid rgba(255,255,255,0.85);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;box-shadow:0 0 10px ${c}66">${lbl}</div>`,
+      className: '', iconSize: [20, 20],
     });
     const m = L.marker([s.lat, s.lng], { icon }).addTo(markerLayer);
     m.bindTooltip(`<b>${s.label}</b><br>Capacity: ${s.cap}`);
@@ -55,14 +96,8 @@ export async function initMap() {
     const legend = L.control({ position: 'bottomright' });
     legend.onAdd = () => {
       const div = L.DomUtil.create('div', '');
-      div.style.background = 'rgba(15,23,42,0.9)';
-      div.style.padding = '8px 10px';
-      div.style.borderRadius = '6px';
-      div.style.border = '1px solid #334155';
-      div.style.color = '#f1f5f9';
-      div.style.fontSize = '11px';
-      div.style.lineHeight = '1.5';
-      div.innerHTML = '<b style="color:#2dd4bf">Consumption</b><br>' +
+      div.style.cssText = 'background:rgba(15,23,42,0.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:8px 10px;border-radius:8px;border:1px solid rgba(51,65,85,0.5);color:#f1f5f9;font-size:11px;line-height:1.5';
+      div.innerHTML = '<b style="color:#2dd4bf">⏎ Consumption</b><br>' +
         '<span style="color:#2EAB9E">●</span> Low<br>' +
         '<span style="color:#4ECDC4">●</span> Med-Low<br>' +
         '<span style="color:#7B2D8E">●</span> Medium<br>' +
@@ -74,7 +109,7 @@ export async function initMap() {
     legendAdded = true;
   }
 
-  // Handle window resize & orientation change
+  // Handle resize
   map.on('resize', () => map.invalidateSize());
   const handleResize = () => setTimeout(() => map?.invalidateSize(), 100);
   window.addEventListener('resize', handleResize);
@@ -82,7 +117,58 @@ export async function initMap() {
   setTimeout(() => map.invalidateSize(), 300);
 }
 
-// ─── Brussels communes ───
+function drawPowerGrid() {
+  for (const line of GRID_LINES) {
+    const is380 = line.kv === 380;
+    const isHvdc = line.kv === 1000;
+    const opts = {
+      color: isHvdc ? '#f97316' : is380 ? '#a78bfa' : '#64748b',
+      weight: isHvdc ? 2 : is380 ? 2.5 : 1.5,
+      opacity: isHvdc ? 0.8 : is380 ? 0.5 : 0.3,
+      dashArray: isHvdc ? '4, 6' : undefined,
+    };
+
+    L.polyline(
+      [L.latLng(line.from.lat, line.from.lng), L.latLng(line.to.lat, line.to.lng)],
+      opts
+    ).addTo(gridLayer).bindTooltip(
+      `<b>${line.label}</b><br>${line.kv} kV`,
+      { direction: 'center', sticky: false }
+    );
+  }
+}
+
+function drawEntryPoints() {
+  for (const ep of ENTRY_POINTS) {
+    const color = ep.color;
+    // Glowing circle for entry point
+    L.circleMarker([ep.lat, ep.lng], {
+      radius: 10,
+      color: color,
+      fillColor: color,
+      fillOpacity: 0.3,
+      weight: 2,
+    }).addTo(entryLayer);
+
+    // Inner dot
+    L.circleMarker([ep.lat, ep.lng], {
+      radius: 4,
+      color: color,
+      fillColor: color,
+      fillOpacity: 0.9,
+      weight: 1,
+    }).addTo(entryLayer);
+
+    // Label
+    const icon = L.divIcon({
+      html: `<div style="font-size:10px;color:#f1f5f9;font-weight:600;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);padding:2px 7px;border-radius:5px;border:1px solid ${color}40;white-space:nowrap">${ep.country} → ${ep.name}</div>`,
+      className: '', iconSize: [0, 0],
+    });
+    L.marker([ep.lat + 0.12, ep.lng], { icon, interactive: false }).addTo(entryLayer);
+  }
+}
+
+// ─── Brussels communes heatmap ───
 const COMMUNES = [
   { name: 'Brussels Centre', pop: 185000, lat: 50.8503, lng: 4.3517 },
   { name: 'Schaerbeek', pop: 133000, lat: 50.8673, lng: 4.3833 },
@@ -127,10 +213,10 @@ export function updateHeatmap(totalMw) {
     const intensity = Math.max(0, Math.min(1, (mw - minMw) / range));
 
     L.circle([c.lat, c.lng], {
-      radius: Math.sqrt(c.pop / Math.PI) * 30,
+      radius: Math.sqrt(c.pop / Math.PI) * 12,
       color: heatColor(intensity),
       fillColor: heatColor(intensity),
-      fillOpacity: 0.6,
+      fillOpacity: 0.55,
       weight: 1.5,
     }).addTo(circlesLayer).bindTooltip(
       `<b>${c.name}</b><br>Pop: ${c.pop.toLocaleString()}<br>Est: <b>${mw.toFixed(1)} MW</b>`,
@@ -139,49 +225,12 @@ export function updateHeatmap(totalMw) {
   }
 }
 
-// ─── Import/Export Flow Arrows ───
-let lastArrowState = null;
-
+// ─── Import/Export flows ───
 export function updateFlows(mix) {
-  if (!flowLayer) return;
-  flowLayer.clearLayers();
-
-  const gasPct = mix['Natural Gas']?.pct || 0;
-  const renPct = (mix['Solar']?.pct || 0) + (mix['Wind Offshore']?.pct || 0) + (mix['Wind Onshore']?.pct || 0);
-
-  let importMw = 1800, exportMw = 1500;
-  if (gasPct > 30) { importMw = 2800; exportMw = 800; }
-  else if (renPct > 30) { importMw = 1200; exportMw = 2400; }
-
-  const borders = [
-    { lat: 48.6, lng: 4.5, country: 'France', imp: importMw * 0.35, exp: exportMw * 0.25 },
-    { lat: 51.8, lng: 5.2, country: 'Netherlands', imp: importMw * 0.30, exp: exportMw * 0.30 },
-    { lat: 51.0, lng: 7.0, country: 'Germany', imp: importMw * 0.20, exp: exportMw * 0.30 },
-    { lat: 51.4, lng: 1.2, country: 'UK', imp: importMw * 0.10, exp: exportMw * 0.10 },
-    { lat: 49.7, lng: 6.2, country: 'Luxembourg', imp: importMw * 0.05, exp: exportMw * 0.05 },
-  ];
-
-  const beLat = 50.85, beLng = 4.35;
-
-  for (const b of borders) {
-    if (b.imp > 80) addFlowArrow(b.lat, b.lng, beLat, beLng, b.imp, '#2dd4bf', `${b.country}`);
-    if (b.exp > 80) addFlowArrow(beLat, beLng, b.lat, b.lng, b.exp, '#f87171', `${b.country}`);
-  }
-}
-
-function addFlowArrow(lat1, lng1, lat2, lng2, mw, color, label) {
-  const weight = Math.max(2, Math.min(7, mw / 400));
-  L.polyline([L.latLng(lat1, lng1), L.latLng(lat2, lng2)], {
-    color, weight, opacity: 0.55, dashArray: '6, 5',
-  }).addTo(flowLayer);
-
-  const midLat = (lat1 + lat2) / 2;
-  const midLng = (lng1 + lng2) / 2;
-  const lbl = L.divIcon({
-    html: `<div style="font-size:10px;color:#f1f5f9;font-weight:600;background:rgba(15,23,42,0.85);padding:2px 6px;border-radius:4px;border:1px solid ${color};white-space:nowrap">${Math.round(mw).toLocaleString()} MW → ${label}</div>`,
-    className: '', iconSize: [0, 0],
-  });
-  L.marker([midLat, midLng], { icon: lbl, interactive: false }).addTo(flowLayer);
+  if (!entryLayer) return;
+  // Entry points are static. The flow direction/color updates are
+  // already handled by the global state via updateMapAttribution.
+  // Keep the entry markers static.
 }
 
 export function updateMapAttribution(timestamp) {
