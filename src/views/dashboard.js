@@ -108,14 +108,14 @@ export function updateBestHours() {
 
   ctx.clearRect(0, 0, W, H);
 
-  // Generate renewable profile: solar peaks midday, wind varies
   const hours = 24;
   const barW = (W - 4) / hours;
 
+  // Deterministic wind profile using sin wave (not random)
   for (let h = 0; h < hours; h++) {
     const solarFactor = Math.max(0, Math.sin((h - 6) / 12 * Math.PI));
-    const windFactor = 0.3 + Math.random() * 0.4;
-    // Renewable mix: solar + wind weighted
+    // Wind is higher at night and spring/fall, lower midday - smooth curve
+    const windFactor = 0.35 + 0.25 * Math.sin((h - 2) / 10 * Math.PI);
     const renFactor = solarFactor * 0.6 + windFactor * 0.4;
     const barH = renFactor * (H - 2);
     const x = 2 + h * barW;
@@ -131,9 +131,11 @@ export function updateBestHours() {
 }
 
 // ─── Myth Card ───
+let mythInterval = null;
+
 export function showMyth(myths) {
   const card = document.getElementById('myth-card');
-  if (!myths.length) { card.classList.add('hidden'); return; }
+  if (!myths.length) { card.classList.add('hidden'); if (mythInterval) clearInterval(mythInterval); return; }
 
   const m = myths[0];
   document.getElementById('myth-icon').textContent = m.icon;
@@ -141,9 +143,10 @@ export function showMyth(myths) {
   document.getElementById('myth-text').textContent = m.text;
   card.classList.remove('hidden');
 
-  // Cycle through myths
+  // Cycle through myths (clear old interval first)
+  if (mythInterval) clearInterval(mythInterval);
   let idx = 0;
-  setInterval(() => {
+  mythInterval = setInterval(() => {
     idx = (idx + 1) % myths.length;
     const m2 = myths[idx];
     document.getElementById('myth-icon').textContent = m2.icon;
