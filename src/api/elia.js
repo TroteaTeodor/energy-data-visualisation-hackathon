@@ -27,7 +27,7 @@ async function fetchDataset(datasetId, params = {}) {
 }
 
 export async function getGenerationMix() {
-  const data = await fetchDataset('ods201', { limit: 200, order_by: 'datetime desc' });
+  const data = await fetchDataset('ods201', { limit: 100, order_by: 'datetime desc' });
   return data?.results || null;
 }
 
