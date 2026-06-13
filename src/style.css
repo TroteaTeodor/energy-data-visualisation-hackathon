@@ -798,6 +798,27 @@ footer a:hover { color: var(--accent); }
   text-align: center;
   padding: 3rem 1rem;
 }
+.con-section-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: -0.25rem;
+}
+.con-section-label::before {
+  content: '';
+  display: inline-block;
+  width: 12px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
 .con-nav {
   display: flex;
   align-items: center;
