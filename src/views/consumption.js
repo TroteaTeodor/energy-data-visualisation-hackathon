@@ -21,7 +21,8 @@ let nilmVisible      = false;
 let listenersAttached = false;
 let tipsCache = null;
 let futureTipsCache = null;
-let todayPrices = null; // real Elia prices for today, fetched once per session
+let todayPrices = null;       // real Elia prices for today, fetched once per session
+let activeCostPrices = null;  // prices currently shown in the cost chart tooltip
 
 export async function initConsumption() {
   const emptyEl   = document.getElementById('con-empty');
@@ -208,8 +209,10 @@ async function loadAndRender() {
     ? `now  ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
     : '');
 
-  // Cost
-  const priceSeries = priceSeriesRaw?.length === 24 ? priceSeriesRaw.map(Number) : null;
+  // Cost — for today use real Elia prices (same source as Energy Prices page)
+  const priceSeries = (isLatestDb && todayPrices)
+    ? todayPrices
+    : priceSeriesRaw?.length === 24 ? priceSeriesRaw.map(Number) : null;
   if (priceSeries) {
     const hourlyCost = Array(24).fill(0);
     slice.forEach((w, m) => {
@@ -308,18 +311,27 @@ function renderFutureTips(tips) {
   section.classList.remove('hidden');
   list.innerHTML = tips.map(tip => {
     const { appId, confidence, startHour, optimalHour, saving } = tip;
-    const badgeClass = confidence >= 80 ? 'confidence-badge--high' : 'confidence-badge--mid';
-    const color      = confidence >= 80 ? '#4ade80' : '#fbbf24';
+    const priceBased = confidence === null;
+    const badgeClass = priceBased ? 'confidence-badge--price'
+                     : confidence >= 80 ? 'confidence-badge--high'
+                     : 'confidence-badge--mid';
+    const color      = priceBased ? '#2dd4bf'
+                     : confidence >= 80 ? '#4ade80'
+                     : '#fbbf24';
+    const badgeText  = priceBased ? '⚡ biggest saver' : `${confidence}% confident`;
     const label      = APPLIANCE_LABEL[appId] ?? appId.replace('_', ' ');
     const fromHour   = `${String(startHour).padStart(2, '0')}:00`;
     const toHour     = `${String(optimalHour).padStart(2, '0')}:00`;
+    const meta       = priceBased
+      ? 'EV charging accounts for the largest share of household energy cost — today\'s spot prices confirm this window 💡'
+      : 'Based on your usage pattern over the last 14 days 📊';
     return `
     <div class="future-tip-card" style="border-left-color:${color}">
-      <span class="confidence-badge ${badgeClass}">${confidence}% confident</span>
+      <span class="confidence-badge ${badgeClass}">${badgeText}</span>
       <div class="future-tip-action">
-        Instead of running your ${label} at ${fromHour}, try ${toHour} — save <strong>€${saving.toFixed(2)}</strong> today
+        Instead of charging your ${label} at ${fromHour}, try ${toHour} — save <strong>€${saving.toFixed(2)}</strong> today
       </div>
-      <div class="future-tip-meta">Based on your usage pattern over the last 14 days 📊</div>
+      <div class="future-tip-meta">${meta}</div>
     </div>`;
   }).join('');
 }
@@ -647,6 +659,8 @@ function renderCostChart(hourlyCost, priceSeries, clipMinute) {
   const canvas = document.getElementById('con-cost-chart');
   if (!canvas) return;
 
+  activeCostPrices = priceSeries; // always keep the module-level ref in sync
+
   const clipHour  = Math.floor(clipMinute / 60);
   const sorted    = [...priceSeries].sort((a, b) => a - b);
   const cheapT    = sorted[Math.floor(sorted.length * 0.28)];
@@ -665,6 +679,8 @@ function renderCostChart(hourlyCost, priceSeries, clipMinute) {
   if (costChart) {
     costChart.data.datasets[0].data            = hourlyCost;
     costChart.data.datasets[0].backgroundColor = barColors;
+    costChart.options.plugins.tooltip.callbacks.label =
+      c => ` €${c.parsed.y.toFixed(4)} · ${(activeCostPrices[c.dataIndex] * 100).toFixed(1)}¢/kWh`;
     costChart.update('none');
     return;
   }
@@ -683,7 +699,8 @@ function renderCostChart(hourlyCost, priceSeries, clipMinute) {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: c => ` €${c.parsed.y.toFixed(4)} · ${(priceSeries[c.dataIndex] * 100).toFixed(1)}¢/kWh`,
+            // reference activeCostPrices (module-level) so it always reflects the latest render
+            label: c => ` €${c.parsed.y.toFixed(4)} · ${(activeCostPrices[c.dataIndex] * 100).toFixed(1)}¢/kWh`,
           },
         },
       },

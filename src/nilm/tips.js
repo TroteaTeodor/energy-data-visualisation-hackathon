@@ -298,6 +298,37 @@ export async function generateFutureTips(predictionWatts, prices24, fetchDayWatt
     tips.push({ appId, confidence, startHour, optimalHour, saving });
   }
 
+  // Always include an EV tip if one wasn't naturally detected.
+  // Uses a typical Belgian EV session (7.4 kW × 2.5 h = 18.5 kWh) and today's real prices.
+  if (!tips.some(t => t.appId === 'ev_charger')) {
+    const evKwh      = 18.5;          // typical session energy
+    const evDuration = 150;           // 2.5 h in minutes
+    // Most expensive starting hour in the 16–21 evening peak window
+    const peakHour = [16, 17, 18, 19, 20, 21].reduce(
+      (best, h) => prices24[h] > prices24[best] ? h : best, 16
+    );
+    const optimalHour = cheapestStartHour(prices24, evDuration);
+    const peakCost    = cheapestWindowCost(prices24, evDuration, evKwh) +
+                        (prices24[peakHour] - Math.min(...prices24)) * evKwh;
+    const actualCost  = evKwh * prices24[peakHour];
+    const optimalCost = cheapestWindowCost(prices24, evDuration, evKwh);
+    const saving      = actualCost - optimalCost;
+
+    if (saving >= 0.05 && optimalHour !== peakHour) {
+      tips.push({
+        appId: 'ev_charger',
+        confidence: null,     // price-based, not pattern-based
+        startHour: peakHour,
+        optimalHour,
+        saving,
+      });
+    }
+  }
+
   tips.sort((a, b) => b.saving - a.saving);
+  // EV tip always surfaces: bring it to the top if it's in the list
+  const evIdx = tips.findIndex(t => t.appId === 'ev_charger');
+  if (evIdx > 0) tips.unshift(tips.splice(evIdx, 1)[0]);
+
   return tips.slice(0, 3);
 }

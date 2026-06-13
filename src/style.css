@@ -1042,8 +1042,9 @@ footer a:hover { color: var(--accent); }
   color: #000;
   margin-bottom: 0.1rem;
 }
-.confidence-badge--high { background: #4ade80; }
-.confidence-badge--mid  { background: #fbbf24; }
+.confidence-badge--high  { background: #4ade80; }
+.confidence-badge--mid   { background: #fbbf24; }
+.confidence-badge--price { background: #2dd4bf; }
 
 .future-tip-action {
   font-size: 0.85rem;
