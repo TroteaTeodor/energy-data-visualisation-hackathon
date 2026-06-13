@@ -11,6 +11,14 @@ let currentLoadRatio = 0.55;
 let currentLoadMw = 0;
 let streetConsumptionCache = null;
 let fullBelgiumGridLoaded = false;
+let belgiumGridFeatures = [];
+let belgiumGridTopology = null;  // Map<featureIdx, Set<featureIdx>>
+let snappedGenerationSites = [];
+let snappedEntryPoints = [];
+let userMarker = null;
+let pathLayer = null;
+let userLocation = null;
+let showOnlyMyPath = false;
 
 const BELGIUM_BOUNDS = {
   south: 49.5,
@@ -76,6 +84,7 @@ export async function initMap() {
   fallbackLayer = L.layerGroup().addTo(map);
   entryLayer = L.layerGroup().addTo(map);
   markerLayer = L.layerGroup().addTo(map);
+  pathLayer = L.layerGroup().addTo(map);
 
   drawFallbackGrid();
   drawEntryPoints();
@@ -83,6 +92,7 @@ export async function initMap() {
   addLegend();
   loadStreetConsumptionContext();
   loadFullBelgiumGrid();
+  initLocationFeature();
 
   map.on('resize', () => map.invalidateSize());
   window.addEventListener('resize', () => setTimeout(() => map?.invalidateSize(), 100));
@@ -102,6 +112,17 @@ async function loadFullBelgiumGrid() {
     const geojson = await response.json();
     const features = geojson.features || [];
 
+    belgiumGridFeatures = features;
+    belgiumGridTopology = buildGridTopology(features);
+    snappedGenerationSites = GENERATION_SITES.map(site => {
+      const snap = snapToNearestGridLine(L.latLng(site.lat, site.lng));
+      return { ...site, snapPoint: snap.point, snapFeatureIdx: snap.featureIdx };
+    });
+    snappedEntryPoints = ENTRY_POINTS.map(ep => {
+      const snap = snapToNearestGridLine(L.latLng(ep.lat, ep.lng));
+      return { ...ep, label: `${ep.country} · ${ep.name}`, type: 'import', snapPoint: snap.point, snapFeatureIdx: snap.featureIdx };
+    });
+    map.removeLayer(fallbackLayer); // real grid loaded, fallback lines not needed
     drawBelgiumGridGeoJSON(features);
     fullBelgiumGridLoaded = true;
     updateGridStatus(`${features.length.toLocaleString()} power lines · click for details`);
@@ -416,6 +437,318 @@ function showFallbackLineDetails(lineData) {
     ])
     .setContent(detailsHtml)
     .openOn(map);
+}
+
+// ─── Location & My Energy Path ────────────────────────────────────────────────
+
+function initLocationFeature() {
+  const searchBtn = document.getElementById('search-btn');
+  const locateBtn = document.getElementById('locate-btn');
+  const addressInput = document.getElementById('address-input');
+  const toggleGridBtn = document.getElementById('toggle-grid-btn');
+  const togglePathBtn = document.getElementById('toggle-path-btn');
+
+  addressInput?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') runAddressSearch(addressInput.value.trim());
+  });
+  searchBtn?.addEventListener('click', () => runAddressSearch(addressInput?.value.trim()));
+
+  locateBtn?.addEventListener('click', () => {
+    if (!navigator.geolocation) { setLocationStatus('Geolocation not supported'); return; }
+    setLocationStatus('Getting your location…');
+    navigator.geolocation.getCurrentPosition(
+      pos => setUserLocation(L.latLng(pos.coords.latitude, pos.coords.longitude)),
+      () => setLocationStatus('Location access denied')
+    );
+  });
+
+  toggleGridBtn?.addEventListener('click', () => {
+    if (showOnlyMyPath) {
+      showOnlyMyPath = false;
+      gridLayer.addTo(map);
+      toggleGridBtn.classList.add('active');
+      togglePathBtn.classList.remove('active');
+    }
+  });
+
+  togglePathBtn?.addEventListener('click', () => {
+    if (!showOnlyMyPath) {
+      showOnlyMyPath = true;
+      map.removeLayer(gridLayer);
+      togglePathBtn.classList.add('active');
+      toggleGridBtn.classList.remove('active');
+    }
+  });
+}
+
+async function runAddressSearch(query) {
+  if (!query) return;
+  setLocationStatus('Searching…');
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&countrycodes=be&format=json&limit=1`;
+    const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+    const results = await res.json();
+    if (!results.length) { setLocationStatus('Address not found in Belgium'); return; }
+    const { lat, lon, display_name } = results[0];
+    setUserLocation(L.latLng(parseFloat(lat), parseFloat(lon)), display_name);
+  } catch {
+    setLocationStatus('Search failed — check connection');
+  }
+}
+
+async function setUserLocation(latlng, label = null) {
+  userLocation = latlng;
+  map.setView(latlng, Math.max(map.getZoom(), 13));
+
+  if (userMarker) map.removeLayer(userMarker);
+  const icon = L.divIcon({
+    html: `<div class="user-marker"><div class="user-marker-inner"></div><div class="user-marker-pulse"></div></div>`,
+    className: '',
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+  });
+  userMarker = L.marker(latlng, { icon, zIndexOffset: 1000 }).addTo(map);
+  if (label) userMarker.bindTooltip(label.split(',')[0], { permanent: false });
+
+  if (!belgiumGridFeatures.length) { setLocationStatus('Grid still loading…'); return; }
+
+  setLocationStatus('Finding your energy path…');
+  await new Promise(r => setTimeout(r, 0));
+
+  const snap = snapToNearestGridLine(latlng);
+  const energySite = findNearestGenerationSite(latlng);
+
+  const allSources = [...snappedGenerationSites, ...snappedEntryPoints];
+  const allPaths = allSources.map(site => ({
+    site,
+    indices: belgiumGridTopology && snap.featureIdx >= 0 && site.snapFeatureIdx >= 0
+      ? walkGridToSource(snap.featureIdx, site.snapFeatureIdx)
+      : [snap.featureIdx],
+  }));
+
+  drawConnectionPath(latlng, snap, allPaths);
+  setLocationStatus('');
+  showPathInfo(snap, allSources, latlng);
+  document.getElementById('toggle-row')?.classList.remove('hidden');
+}
+
+function snapToNearestGridLine(latlng) {
+  let bestDist = Infinity;
+  let bestPoint = null;
+  let bestTags = {};
+  let bestCoords = null;
+  let bestFeatureIdx = -1;
+
+  belgiumGridFeatures.forEach((feature, idx) => {
+    if (feature.geometry?.type !== 'LineString') return;
+    const coords = feature.geometry.coordinates;
+
+    for (let i = 0; i < coords.length - 1; i++) {
+      const a = [coords[i][1], coords[i][0]];
+      const b = [coords[i + 1][1], coords[i + 1][0]];
+      const closest = closestPointOnSegment([latlng.lat, latlng.lng], a, b);
+      const dist = latlng.distanceTo(L.latLng(closest[0], closest[1]));
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestPoint = closest;
+        bestTags = feature.properties || {};
+        bestCoords = coords.map(([lng, lat]) => [lat, lng]);
+        bestFeatureIdx = idx;
+      }
+    }
+  });
+
+  return { point: bestPoint, tags: bestTags, lineCoords: bestCoords, dist: bestDist, featureIdx: bestFeatureIdx };
+}
+
+function buildGridTopology(features) {
+  // Spatial bucket: ~500m cells, connect endpoints within 350m of each other
+  const CELL = 0.005;
+  const CONNECT_DIST = 350;
+
+  const buckets = new Map();
+  const endpoints = [];
+
+  features.forEach((feature, idx) => {
+    if (feature.geometry?.type !== 'LineString') return;
+    const coords = feature.geometry.coordinates;
+    for (const pt of [coords[0], coords[coords.length - 1]]) {
+      const lat = pt[1], lng = pt[0];
+      const key = `${Math.floor(lat / CELL)},${Math.floor(lng / CELL)}`;
+      if (!buckets.has(key)) buckets.set(key, []);
+      const epIdx = endpoints.length;
+      endpoints.push({ lat, lng, featureIdx: idx });
+      buckets.get(key).push(epIdx);
+    }
+  });
+
+  const adj = new Map();
+  for (let i = 0; i < endpoints.length; i++) {
+    const { lat, lng, featureIdx } = endpoints[i];
+    for (let dlat = -1; dlat <= 1; dlat++) {
+      for (let dlng = -1; dlng <= 1; dlng++) {
+        const key = `${Math.floor(lat / CELL) + dlat},${Math.floor(lng / CELL) + dlng}`;
+        for (const j of (buckets.get(key) || [])) {
+          if (i === j) continue;
+          const ep2 = endpoints[j];
+          if (ep2.featureIdx === featureIdx) continue;
+          if (L.latLng(lat, lng).distanceTo(L.latLng(ep2.lat, ep2.lng)) <= CONNECT_DIST) {
+            if (!adj.has(featureIdx)) adj.set(featureIdx, new Set());
+            if (!adj.has(ep2.featureIdx)) adj.set(ep2.featureIdx, new Set());
+            adj.get(featureIdx).add(ep2.featureIdx);
+            adj.get(ep2.featureIdx).add(featureIdx);
+          }
+        }
+      }
+    }
+  }
+  return adj;
+}
+
+function featureMidpointLatlng(idx) {
+  const coords = belgiumGridFeatures[idx]?.geometry?.coordinates;
+  if (!coords) return null;
+  const mid = coords[Math.floor(coords.length / 2)];
+  return L.latLng(mid[1], mid[0]);
+}
+
+function walkGridToSource(startFeatureIdx, targetFeatureIdx) {
+  if (startFeatureIdx === targetFeatureIdx) return [startFeatureIdx];
+
+  const targetMid = featureMidpointLatlng(targetFeatureIdx);
+  if (!targetMid) return [startFeatureIdx];
+
+  // Greedy best-first search (A*-lite): always expand the frontier node closest to target
+  const visited = new Set([startFeatureIdx]);
+  const frontier = [{ dist: Infinity, idx: startFeatureIdx, path: [startFeatureIdx] }];
+  const MAX_EXPLORED = 800;
+  let explored = 0;
+
+  while (frontier.length > 0 && explored < MAX_EXPLORED) {
+    frontier.sort((a, b) => a.dist - b.dist);
+    const { idx, path } = frontier.shift();
+    explored++;
+
+    if (idx === targetFeatureIdx) return path;
+
+    for (const nextIdx of (belgiumGridTopology.get(idx) || new Set())) {
+      if (visited.has(nextIdx)) continue;
+      visited.add(nextIdx);
+      const mid = featureMidpointLatlng(nextIdx);
+      const dist = mid ? mid.distanceTo(targetMid) : Infinity;
+      frontier.push({ dist, idx: nextIdx, path: [...path, nextIdx] });
+    }
+  }
+
+  // Return the partial path that got closest
+  frontier.sort((a, b) => a.dist - b.dist);
+  return frontier.length ? frontier[0].path : [startFeatureIdx];
+}
+
+function closestPointOnSegment(p, a, b) {
+  const dx = b[0] - a[0], dy = b[1] - a[1];
+  if (dx === 0 && dy === 0) return a;
+  const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy)));
+  return [a[0] + t * dx, a[1] + t * dy];
+}
+
+function findNearestGenerationSite(latlng) {
+  const sites = snappedGenerationSites.length ? snappedGenerationSites : GENERATION_SITES;
+  let best = null, bestDist = Infinity;
+  for (const site of sites) {
+    const dist = latlng.distanceTo(L.latLng(site.lat, site.lng));
+    if (dist < bestDist) { bestDist = dist; best = { ...site, dist: bestDist }; }
+  }
+  return best;
+}
+
+const SITE_COLORS = { nuclear: '#a78bfa', wind: '#2dd4bf', gas: '#f97316', storage: '#60a5fa', import: '#e2e8f0' };
+
+function drawConnectionPath(userLatlng, snap, allPaths) {
+  pathLayer.clearLayers();
+
+  // Collect which feature indices belong to which source colours.
+  // A segment shared by multiple paths gets the colour of whichever was assigned first.
+  const drawnFeatures = new Map(); // featureIdx → color
+
+  for (const { site, indices } of allPaths) {
+    const color = SITE_COLORS[site.type] || '#64748b';
+    for (const idx of indices) {
+      if (!drawnFeatures.has(idx)) drawnFeatures.set(idx, color);
+    }
+  }
+
+  // Draw each unique feature once
+  for (const [idx, color] of drawnFeatures) {
+    const feature = belgiumGridFeatures[idx];
+    if (feature?.geometry?.type !== 'LineString') continue;
+    const coords = feature.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+    L.polyline(coords, { color, weight: 2.5, opacity: 0.95, pane: 'gridPane', lineCap: 'round' }).addTo(pathLayer);
+  }
+
+  // Dot + dashed connector at each source's grid snap point → actual marker
+  for (const { site } of allPaths) {
+    if (!site.snapPoint) continue;
+    const color = SITE_COLORS[site.type] || '#64748b';
+    L.circleMarker(site.snapPoint, {
+      radius: 5, color: '#ffffff', fillColor: color, fillOpacity: 1, weight: 2, pane: 'gridPane',
+    }).addTo(pathLayer);
+    // Short dashed line from snap point to the actual source location
+    L.polyline([site.snapPoint, [site.lat, site.lng]], {
+      color, weight: 1.5, opacity: 0.6, dashArray: '4 6', pane: 'gridPane',
+    }).addTo(pathLayer);
+  }
+
+  // Dashed: user → their snap point on the grid
+  L.polyline([userLatlng, snap.point], {
+    color: '#ffffff', weight: 2, opacity: 0.85, dashArray: '5 7', pane: 'gridPane',
+  }).addTo(pathLayer);
+
+  // User snap dot
+  L.circleMarker(snap.point, {
+    radius: 7, color: '#ffffff', fillColor: '#2dd4bf', fillOpacity: 1, weight: 2, pane: 'gridPane',
+  }).addTo(pathLayer);
+}
+
+function showPathInfo(snap, sites, userLatlng) {
+  const el = document.getElementById('path-info');
+  if (!el) return;
+
+  const voltage = parseVoltage(snap.tags.voltage);
+  const voltageText = voltage ? `${Math.round(voltage / 1000)} kV` : '—';
+  const operator = snap.tags.operator || 'Elia';
+  const nearestSite = sites.reduce((best, s) => {
+    const d = userLatlng.distanceTo(L.latLng(s.lat, s.lng));
+    return d < best.d ? { s, d } : best;
+  }, { s: sites[0], d: Infinity }).s;
+  const nearestColor = SITE_COLORS[nearestSite?.type] || '#64748b';
+  const nearestDist = nearestSite ? userLatlng.distanceTo(L.latLng(nearestSite.lat, nearestSite.lng)) : 0;
+
+  el.innerHTML = `
+    <div class="path-info-row">
+      <div class="path-info-icon" style="background:rgba(45,212,191,0.15);border-color:#2dd4bf">⬡</div>
+      <div class="path-info-text">
+        <div class="path-info-label">Grid connection</div>
+        <div class="path-info-value">${voltageText} · ${escapeHtml(operator)}</div>
+        <div class="path-info-dist">${(snap.dist / 1000).toFixed(2)} km from you</div>
+      </div>
+    </div>
+    <div class="path-info-divider"></div>
+    <div class="path-info-row">
+      <div class="path-info-icon" style="background:${nearestColor}22;border-color:${nearestColor}">⚡</div>
+      <div class="path-info-text">
+        <div class="path-info-label">Nearest source</div>
+        <div class="path-info-value" style="color:${nearestColor}">${escapeHtml(nearestSite?.label || '—')}</div>
+        <div class="path-info-dist">${(nearestDist / 1000).toFixed(1)} km${nearestSite?.cap ? ' · ' + nearestSite.cap : ''}</div>
+      </div>
+    </div>
+  `;
+  el.classList.remove('hidden');
+}
+
+function setLocationStatus(text) {
+  const el = document.getElementById('location-status');
+  if (el) el.textContent = text;
 }
 
 function showLineDetailsFromOSM(tags, latlng) {

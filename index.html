@@ -34,6 +34,24 @@
         </div>
       </div>
 
+      <!-- My Energy Path -->
+      <div class="card" id="location-card">
+        <div class="card-title">My Energy Path</div>
+        <div class="location-search">
+          <div class="search-row">
+            <input type="text" id="address-input" placeholder="Search address in Belgium…" autocomplete="off" />
+            <button id="search-btn" class="search-submit" aria-label="Search">→</button>
+          </div>
+          <button id="locate-btn" class="locate-btn">⦿ Use my location</button>
+        </div>
+        <div id="location-status" class="location-status"></div>
+        <div id="path-info" class="path-info hidden"></div>
+        <div id="toggle-row" class="toggle-row hidden">
+          <button id="toggle-grid-btn" class="toggle-btn active">Full grid</button>
+          <button id="toggle-path-btn" class="toggle-btn">My path only</button>
+        </div>
+      </div>
+
       <!-- Carbon Intensity + Load -->
       <div class="row-cards">
         <div class="card stat-card">

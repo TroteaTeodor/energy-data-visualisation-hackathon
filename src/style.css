@@ -339,6 +339,123 @@ footer a:hover { color: var(--accent); }
   font-weight: 700;
 }
 
+/* ─── My Energy Path ─── */
+.location-search { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.search-row {
+  display: flex;
+  gap: 0.3rem;
+}
+#address-input {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.72rem;
+  padding: 0.35rem 0.5rem;
+  outline: none;
+  min-width: 0;
+}
+#address-input:focus { border-color: var(--accent); }
+#address-input::placeholder { color: var(--text3); }
+
+.search-submit {
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #0a0f1e;
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 0 0.6rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.search-submit:hover { opacity: 0.85; }
+
+.locate-btn {
+  background: var(--surface2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  color: var(--text2);
+  font-size: 0.68rem;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s, color 0.2s;
+}
+.locate-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.location-status {
+  font-size: 0.65rem;
+  color: var(--text3);
+  min-height: 0.9rem;
+  margin-top: 0.1rem;
+}
+
+.path-info { display: flex; flex-direction: column; gap: 0; margin-top: 0.4rem; }
+.path-info.hidden { display: none; }
+
+.path-info-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0; }
+.path-info-icon {
+  width: 28px; height: 28px; flex-shrink: 0;
+  border-radius: 50%; border: 1px solid;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem;
+}
+.path-info-text { flex: 1; min-width: 0; }
+.path-info-label { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); }
+.path-info-value { font-size: 0.72rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.path-info-dist { font-size: 0.62rem; color: var(--text3); font-variant-numeric: tabular-nums; }
+.path-info-divider { height: 1px; background: var(--glass-border); margin: 0.1rem 0; }
+
+.toggle-row { display: flex; gap: 0.3rem; margin-top: 0.4rem; }
+.toggle-row.hidden { display: none; }
+.toggle-btn {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  color: var(--text3);
+  font-size: 0.65rem;
+  padding: 0.3rem 0;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.toggle-btn.active {
+  background: rgba(45, 212, 191, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ─── User Location Marker ─── */
+.user-marker {
+  position: relative;
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+}
+.user-marker-inner {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: #2dd4bf;
+  border: 3px solid #ffffff;
+  position: relative; z-index: 2;
+  box-shadow: 0 0 14px #2dd4bf, 0 0 28px rgba(45,212,191,0.4);
+}
+.user-marker-pulse {
+  position: absolute;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: rgba(45, 212, 191, 0.25);
+  animation: location-pulse 2s ease-out infinite;
+  top: 0; left: 0;
+}
+@keyframes location-pulse {
+  0% { transform: scale(0.5); opacity: 1; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
 /* ─── Responsive: Tablet & Mobile ─── */
 @media (max-width: 768px) {
   .app-layout {
