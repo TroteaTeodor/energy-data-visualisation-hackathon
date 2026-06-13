@@ -102,6 +102,37 @@ export const FUEL_COLORS = {
   'Energy storage': '#D4A574',
 };
 
+// ─── CO₂ & fuel classification (shared across views) ───
+export const CO2_FACTORS = {
+  'Natural Gas': 490, 'Nuclear': 12, 'Solar': 45, 'Wind Offshore': 11,
+  'Wind Onshore': 11, 'Biofuels': 230, 'Water': 24, 'Other Fossil Fuels': 820,
+  'Other': 300, 'Energy storage': 100,
+};
+
+export const RENEWABLE_FUELS = ['Solar', 'Wind Offshore', 'Wind Onshore', 'Water', 'Biofuels'];
+export const FOSSIL_FUELS = ['Natural Gas', 'Other Fossil Fuels'];
+
+// Weighted CO₂ intensity (g/kWh) from a list of { fuel, pct } entries
+export function computeCo2(mixPct) {
+  let total = 0, covered = 0;
+  for (const e of mixPct) {
+    total += e.pct * (CO2_FACTORS[e.fuel] ?? 100);
+    covered += e.pct;
+  }
+  return covered > 0 ? total / covered : 0;
+}
+
+export function categorizeMix(mixPct) {
+  let renewable = 0, nuclear = 0, fossil = 0, other = 0;
+  for (const e of mixPct) {
+    if (RENEWABLE_FUELS.includes(e.fuel)) renewable += e.pct;
+    else if (e.fuel === 'Nuclear') nuclear += e.pct;
+    else if (FOSSIL_FUELS.includes(e.fuel)) fossil += e.pct;
+    else other += e.pct;
+  }
+  return { renewable, nuclear, fossil, other };
+}
+
 export function checkMyths(mix, totalMw) {
   const gasPct = mix['Natural Gas']?.pct || 0;
   const solarPct = mix['Solar']?.pct || 0;

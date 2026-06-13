@@ -1,0 +1,13 @@
+node_modules
+dist
+backend
+db
+.git
+.gitignore
+*.log
+.DS_Store
+Dockerfile
+docker-compose.yml
+.dockerignore
+pnpm-lock.yaml
+pnpm-workspace.yaml

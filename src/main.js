@@ -1,6 +1,8 @@
 import { getCurrentMix, computeMixPercentages, checkMyths } from './api/elia.js';
 import { initClock, updateGenMix, updateStats, updateBestHours, showMyth, storeDashboardState } from './views/dashboard.js';
-import { initMap, updateHeatmap, updateFlows, updateMapAttribution, setEliaRefresher } from './views/map.js';
+import { initMap, updateHeatmap, updateFlows, updateMapAttribution, invalidateMap, setEliaRefresher } from './views/map.js';
+import { updateConsumption, initConsumption } from './views/consumption.js';
+import { initGeneration } from './views/generation.js';
 
 // ─── State ───
 let state = { mix: {}, totalMw: 0, mixPct: [], myths: [] };
@@ -48,6 +50,7 @@ async function updateAll() {
     showMyth(state.myths);
     updateHeatmap(total);
     updateFlows(raw);
+    updateConsumption(total);
 
     const now = new Date();
     const timeStr = now.toLocaleTimeString();
@@ -60,11 +63,28 @@ async function updateAll() {
   }
 }
 
+// ─── Tab navigation ───
+function initTabs() {
+  const tabs = document.querySelectorAll('.tab');
+  const views = document.querySelectorAll('.view');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const name = tab.dataset.view;
+      tabs.forEach(t => t.classList.toggle('active', t === tab));
+      views.forEach(v => v.classList.toggle('active', v.id === `view-${name}`));
+      if (name === 'overview') invalidateMap();
+      if (name === 'consumption') initConsumption();
+    });
+  });
+}
+
 // ─── Init ───
 async function init() {
   setStatus('loading', 'Connecting to grid...');
 
+  initTabs();
   initClock();
+  initGeneration();
   await initMap();
 
   // Give map.js a way to trigger a fresh Elia fetch on popup open

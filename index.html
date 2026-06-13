@@ -11,6 +11,11 @@
 <body>
   <header>
     <div class="logo">⚡ Brussels Energy Reality</div>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-view="overview">Overview</button>
+      <button class="tab" data-view="generation">Data Generation</button>
+      <button class="tab" data-view="consumption">Power Consumption</button>
+    </nav>
     <div class="header-right">
       <span class="live-badge">
         <span class="live-dot"></span>
@@ -20,6 +25,8 @@
     </div>
   </header>
 
+  <div class="views" id="views">
+  <section class="view active" id="view-overview">
   <div class="app-layout">
     <aside id="sidebar">
       <!-- Digital Clock -->
@@ -118,6 +125,149 @@
         <span id="map-timestamp">Updated: --</span>
       </div>
     </main>
+  </div>
+  </section>
+
+  <!-- ─── Data Generation ─── -->
+  <section class="view page-view" id="view-generation">
+    <div class="page-inner">
+      <header class="page-head">
+        <h1 class="page-title">Data Generation</h1>
+        <p class="page-sub">Generate 3 months of synthetic household power consumption data for NILM analysis.</p>
+      </header>
+
+      <!-- Appliance configurator -->
+      <div class="card">
+        <div class="card-title">Appliances (grootverbruikers)</div>
+        <div id="appliance-list" class="appliance-list"></div>
+      </div>
+
+      <!-- Trigger -->
+      <button id="btn-generate" class="btn-generate">Generate 3 months of data</button>
+
+      <!-- Results — hidden until generated -->
+      <div id="gen-results" class="gen-results hidden">
+
+        <div class="stat-grid">
+          <div class="card stat-card big">
+            <div class="stat-label">Days generated</div>
+            <div class="stat-value" id="res-days">—</div>
+          </div>
+          <div class="card stat-card big">
+            <div class="stat-label">Data points</div>
+            <div class="stat-value" id="res-points">—</div>
+          </div>
+          <div class="card stat-card big">
+            <div class="stat-label">Total energy</div>
+            <div class="stat-value" id="res-kwh">—</div>
+            <div class="stat-unit">kWh</div>
+          </div>
+          <div class="card stat-card big">
+            <div class="stat-label">Avg per day</div>
+            <div class="stat-value" id="res-avg">—</div>
+            <div class="stat-unit">kWh/day</div>
+          </div>
+        </div>
+
+        <!-- Week preview -->
+        <div class="card">
+          <div class="card-title-row">
+            <div class="card-title">Week preview</div>
+            <div class="day-nav">
+              <button class="nav-btn" id="btn-prev-week">← Prev</button>
+              <span id="preview-week">—</span>
+              <button class="nav-btn" id="btn-next-week">Next →</button>
+            </div>
+          </div>
+          <div class="week-charts grid grid-cols-4" id="week-charts"></div>
+        </div>
+
+        <!-- Export / Save -->
+        <div class="export-row">
+          <button class="btn-export" id="btn-export-json">Export JSON</button>
+          <button class="btn-export" id="btn-export-csv">Export CSV</button>
+          <button class="btn-save-db" id="btn-save-db">Save to database</button>
+          <span class="db-status" id="db-status"></span>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Power Consumption ─── -->
+  <section class="view page-view" id="view-consumption">
+    <div class="page-inner">
+      <header class="page-head">
+        <h1 class="page-title">Power Consumption</h1>
+        <p class="page-sub">Your household's energy usage — minute by minute.</p>
+      </header>
+
+      <div id="con-empty" class="con-empty hidden">
+        No data saved yet. Go to Data Generation, generate and save your data first.
+      </div>
+
+      <div id="con-content" class="hidden">
+
+        <!-- Date navigation -->
+        <div class="card con-nav">
+          <button class="nav-btn" id="con-prev">← Prev</button>
+          <div class="con-date-wrap">
+            <span id="con-date-label" class="con-date-label">—</span>
+            <span id="con-today-badge" class="today-badge">Today</span>
+          </div>
+          <button class="nav-btn" id="con-next">Next →</button>
+        </div>
+
+        <!-- Stats -->
+        <div class="stat-grid">
+          <div class="card stat-card big">
+            <div class="stat-label" id="con-now-label">Now</div>
+            <div class="stat-value" id="con-current">—</div>
+            <div class="stat-unit">W</div>
+          </div>
+          <div class="card stat-card big">
+            <div class="stat-label">Total <span id="con-period-label">today</span></div>
+            <div class="stat-value" id="con-kwh">—</div>
+            <div class="stat-unit">kWh</div>
+          </div>
+          <div class="card stat-card big">
+            <div class="stat-label">Peak</div>
+            <div class="stat-value" id="con-peak">—</div>
+            <div class="stat-unit">W</div>
+          </div>
+          <div class="card stat-card big">
+            <div class="stat-label">Average</div>
+            <div class="stat-value" id="con-avg">—</div>
+            <div class="stat-unit">W</div>
+          </div>
+        </div>
+
+        <!-- 24h chart -->
+        <div class="card chart-card">
+          <div class="card-title-row">
+            <div class="card-title">Household power (W)</div>
+            <div class="con-chart-actions">
+              <span id="con-now-time" class="con-now-time"></span>
+              <button class="btn-nilm-toggle" id="btn-nilm-toggle">Show NILM</button>
+            </div>
+          </div>
+          <div class="chart-wrap tall"><canvas id="con-chart"></canvas></div>
+        </div>
+
+        <!-- NILM breakdown (hidden until toggled) -->
+        <div id="con-nilm-section" class="hidden">
+          <div class="card chart-card">
+            <div class="card-title-row">
+              <div class="card-title">NILM breakdown — estimated appliance contributions</div>
+            </div>
+            <div class="chart-wrap tall"><canvas id="con-nilm-chart"></canvas></div>
+            <div id="nilm-legend" class="nilm-legend"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
   </div>
 
   <footer>

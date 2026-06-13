@@ -275,6 +275,30 @@ function drawEntryPoints() {
   }
 }
 
+// ─── Brussels communes heatmap ───
+export const COMMUNES = [
+  { name: 'Brussels Centre', pop: 185000, lat: 50.8503, lng: 4.3517 },
+  { name: 'Schaerbeek', pop: 133000, lat: 50.8673, lng: 4.3833 },
+  { name: 'Anderlecht', pop: 120000, lat: 50.8333, lng: 4.3000 },
+  { name: 'Molenbeek', pop: 98000, lat: 50.8500, lng: 4.3167 },
+  { name: 'Ixelles', pop: 87000, lat: 50.8322, lng: 4.3667 },
+  { name: 'Uccle', pop: 83000, lat: 50.8000, lng: 4.3333 },
+  { name: 'Woluwe-St-Lambert', pop: 58000, lat: 50.8500, lng: 4.4167 },
+  { name: 'Forest', pop: 56000, lat: 50.8167, lng: 4.3167 },
+  { name: 'Jette', pop: 52000, lat: 50.8667, lng: 4.3167 },
+  { name: 'St-Gilles', pop: 50000, lat: 50.8167, lng: 4.3500 },
+  { name: 'Etterbeek', pop: 48000, lat: 50.8333, lng: 4.3833 },
+  { name: 'Evere', pop: 42000, lat: 50.8667, lng: 4.4000 },
+  { name: 'Woluwe-St-Pierre', pop: 42000, lat: 50.8333, lng: 4.4333 },
+  { name: 'Auderghem', pop: 34000, lat: 50.8167, lng: 4.4333 },
+  { name: 'St-Josse', pop: 27000, lat: 50.8500, lng: 4.3667 },
+  { name: 'Ganshoren', pop: 25000, lat: 50.8667, lng: 4.3000 },
+  { name: 'Berchem-Ste-Agathe', pop: 25000, lat: 50.8667, lng: 4.2833 },
+  { name: 'Watermael-Boitsfort', pop: 25000, lat: 50.8000, lng: 4.4167 },
+  { name: 'Koekelberg', pop: 22000, lat: 50.8500, lng: 4.3167 },
+];
+const TOTAL_POP = COMMUNES.reduce((s, c) => s + c.pop, 0);
+
 function drawGenerationSites() {
   const iconColors = { nuclear: '#a78bfa', wind: '#2dd4bf', gas: '#f97316', storage: '#60a5fa' };
   const iconLabels = { nuclear: 'N', wind: 'W', gas: 'G', storage: 'S' };
@@ -381,6 +405,11 @@ export function updateHeatmap(totalMw) {
 
 export function updateFlows() {
   if (!entryLayer) return;
+}
+
+// Recalculate map size — call after the map's tab becomes visible
+export function invalidateMap() {
+  if (map) setTimeout(() => map.invalidateSize(), 50);
 }
 
 export function updateMapAttribution(timestamp) {
