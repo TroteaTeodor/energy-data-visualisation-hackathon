@@ -17,7 +17,7 @@ const APPLIANCE_EMOJI = {
   hob:             '🍳',
 };
 
-const APPLIANCE_LABEL = {
+export const APPLIANCE_LABEL = {
   dishwasher:      'dishwasher',
   washing_machine: 'washing machine',
   ev_charger:      'EV charger',
@@ -233,4 +233,72 @@ export async function generateTips(dates, fetchDayWatts) {
   // Sort descending by saving, take top 3
   candidates.sort((a, b) => b.monthlySaving - a.monthlySaving);
   return candidates.slice(0, 3);
+}
+
+/**
+ * Generate up to 3 prediction-based tips for today.
+ * Uses today's predicted watts + EPEX prices to find shift opportunities,
+ * then measures confidence from how often the appliance runs in the same
+ * ±2-hour window over the last 14 historical days.
+ *
+ * @param {number[]} predictionWatts  1440-element array for today's predicted watts
+ * @param {string}   todayDate        YYYY-MM-DD
+ * @param {Function} fetchDayWatts    (date) => Promise<number[]|null>
+ * @param {Array}    dates            DB dates array — used to slice last 14 days
+ * @returns {Promise<Array>}
+ */
+export async function generateFutureTips(predictionWatts, todayDate, fetchDayWatts, dates) {
+  if (!predictionWatts || predictionWatts.length !== 1440) return [];
+
+  const prices24 = generatePricesForDate(todayDate);
+  const predNilm = detectAppliances(predictionWatts);
+
+  // Last 14 DB days for confidence scoring
+  const histDates = dates.slice(-14);
+  if (histDates.length < 3) return [];
+
+  const histWatts = await Promise.all(
+    histDates.map(({ date }) => fetchDayWatts(date).catch(() => null))
+  );
+  const validHist = histWatts.filter(w => w && w.length === 1440);
+  if (validHist.length < 3) return [];
+
+  const tips = [];
+
+  for (const appId of TIPABLE) {
+    const minuteData = predNilm[appId];
+    if (!minuteData) continue;
+
+    const runs = detectRuns(minuteData);
+    if (!runs.length) continue;
+
+    // Take the highest-energy run (the main cycle, not standby blips)
+    const run = runs.reduce((a, b) => b.kWh > a.kWh ? b : a);
+    const { startHour, durationMin, kWh } = run;
+
+    const actualCost  = kWh * prices24[startHour];
+    const optimalCost = cheapestWindowCost(prices24, durationMin, kWh);
+    const saving      = actualCost - optimalCost;
+    if (saving < 0.05) continue;
+
+    const optimalHour = cheapestStartHour(prices24, durationMin);
+    if (optimalHour === startHour) continue;
+
+    // Confidence: % of historical days where this appliance ran within ±2h of predicted start
+    const lo = Math.max(0, startHour - 2);
+    const hi = Math.min(23, startHour + 2);
+    let matchCount = 0;
+    for (const w of validHist) {
+      const hNilm = detectAppliances(w);
+      const hRuns = detectRuns(hNilm[appId] ?? []);
+      if (hRuns.some(r => r.startHour >= lo && r.startHour <= hi)) matchCount++;
+    }
+    const confidence = Math.round((matchCount / validHist.length) * 100);
+    if (confidence < 60) continue;
+
+    tips.push({ appId, confidence, startHour, optimalHour, saving });
+  }
+
+  tips.sort((a, b) => b.saving - a.saving);
+  return tips.slice(0, 3);
 }

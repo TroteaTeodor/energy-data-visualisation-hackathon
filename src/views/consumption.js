@@ -1,6 +1,6 @@
 import Chart from 'chart.js/auto';
 import { detectAppliances, APPLIANCE_META, APPLIANCE_ORDER } from '../nilm/detect.js';
-import { generateTips } from '../nilm/tips.js';
+import { generateTips, generateFutureTips, APPLIANCE_LABEL } from '../nilm/tips.js';
 import { maybeNotifyTips } from './settings.js';
 
 export function updateConsumption() {}
@@ -19,6 +19,7 @@ let currentMinute    = MINUTES_PER_DAY - 1;
 let nilmVisible      = false;
 let listenersAttached = false;
 let tipsCache = null;
+let futureTipsCache = null;
 
 export async function initConsumption() {
   const emptyEl   = document.getElementById('con-empty');
@@ -163,8 +164,8 @@ async function loadAndRender() {
       return;
     }
 
-    // Fetch prediction to extend today's chart from now → midnight
-    if (isLatestDb && currentMinute < MINUTES_PER_DAY - 1) {
+    // Fetch prediction: used for chart overlay (rest of day) + future tips
+    if (isLatestDb) {
       try {
         const res = await fetch(`/api/households/${HOUSEHOLD_ID}/prediction/${selectedDate}`);
         if (res.ok) predictionWatts = (await res.json()).watts_series;
@@ -210,9 +211,8 @@ async function loadAndRender() {
     document.getElementById('con-cost-section')?.classList.add('hidden');
   }
 
-  // Build "rest of day" prediction overlay for today.
-  // Include currentMinute in both series so the lines visually connect.
-  const todayPredictedVisible = predictionWatts
+  // Build "rest of day" prediction overlay for today (only when day isn't over).
+  const todayPredictedVisible = predictionWatts && currentMinute < MINUTES_PER_DAY - 1
     ? predictionWatts.map((w, i) => i >= currentMinute ? w : null)
     : null;
 
@@ -253,6 +253,60 @@ async function loadAndRender() {
   } else if (tipsCache === 'loading') {
     renderTips(null);
   }
+
+  // Future tips: prediction-based, only meaningful on the latest DB day
+  if (!isLatestDb || !predictionWatts) {
+    futureTipsCache = null;
+    renderFutureTips([]);
+  } else if (!futureTipsCache) {
+    futureTipsCache = 'loading';
+    renderFutureTips(null);
+    generateFutureTips(predictionWatts, selectedDate, fetchDayWatts, dates).then(tips => {
+      futureTipsCache = tips;
+      renderFutureTips(tips);
+    }).catch(() => {
+      futureTipsCache = null;
+    });
+  } else if (Array.isArray(futureTipsCache)) {
+    renderFutureTips(futureTipsCache);
+  } else if (futureTipsCache === 'loading') {
+    renderFutureTips(null);
+  }
+}
+
+function renderFutureTips(tips) {
+  const section = document.getElementById('con-future-tips-section');
+  const list    = document.getElementById('future-tips-list');
+  if (!section || !list) return;
+
+  if (tips === null) {
+    section.classList.remove('hidden');
+    list.innerHTML = '<div class="tip-loading"><span class="tip-spinner"></span> Computing today\'s predictions…</div>';
+    return;
+  }
+
+  if (!tips.length) {
+    section.classList.add('hidden');
+    return;
+  }
+
+  section.classList.remove('hidden');
+  list.innerHTML = tips.map(tip => {
+    const { appId, confidence, startHour, optimalHour, saving } = tip;
+    const badgeClass = confidence >= 80 ? 'confidence-badge--high' : 'confidence-badge--mid';
+    const color      = confidence >= 80 ? '#4ade80' : '#fbbf24';
+    const label      = APPLIANCE_LABEL[appId] ?? appId.replace('_', ' ');
+    const fromHour   = `${String(startHour).padStart(2, '0')}:00`;
+    const toHour     = `${String(optimalHour).padStart(2, '0')}:00`;
+    return `
+    <div class="future-tip-card" style="border-left-color:${color}">
+      <span class="confidence-badge ${badgeClass}">${confidence}% confident</span>
+      <div class="future-tip-action">
+        Instead of running your ${label} at ${fromHour}, try ${toHour} — save <strong>€${saving.toFixed(2)}</strong> today
+      </div>
+      <div class="future-tip-meta">Based on your usage pattern over the last 14 days 📊</div>
+    </div>`;
+  }).join('');
 }
 
 // ─── Tip helpers ───

@@ -1006,6 +1006,59 @@ footer a:hover { color: var(--accent); }
   to { transform: rotate(360deg); }
 }
 
+/* ─── Future tips (prediction-based) ─── */
+
+.card-sub {
+  font-size: 0.72rem;
+  color: var(--text3);
+  margin: -0.25rem 0 0.75rem;
+  line-height: 1.4;
+}
+
+.future-tip-card {
+  background: var(--surface);
+  backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(var(--blur));
+  border: 1px solid var(--glass-border);
+  border-left: 3px solid;
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+  transition: background 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.future-tip-card:hover { background: var(--surface2); }
+
+.confidence-badge {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.15em 0.55em;
+  border-radius: 999px;
+  color: #000;
+  margin-bottom: 0.1rem;
+}
+.confidence-badge--high { background: #4ade80; }
+.confidence-badge--mid  { background: #fbbf24; }
+
+.future-tip-action {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.45;
+}
+.future-tip-action strong { font-weight: 700; }
+
+.future-tip-meta {
+  font-size: 0.7rem;
+  color: var(--text3);
+  font-style: italic;
+}
+
 /* ─── Responsive: Tablet & Mobile ─── */
 @media (max-width: 768px) {
   .app-layout {
