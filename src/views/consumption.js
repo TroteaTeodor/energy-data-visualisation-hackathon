@@ -1,5 +1,6 @@
 import Chart from 'chart.js/auto';
 import { detectAppliances, APPLIANCE_META, APPLIANCE_ORDER } from '../nilm/detect.js';
+import { generateTips } from '../nilm/tips.js';
 
 // No-op — kept so main.js import doesn't break (called with Elia MW data)
 export function updateConsumption() {}
@@ -16,11 +17,13 @@ let nilmVisible = false;
 let currentNilm = null;
 let currentMinute = MINUTES_PER_DAY - 1;
 let listenersAttached = false;
+let tipsCache = null;
 
 export async function initConsumption() {
   const emptyEl   = document.getElementById('con-empty');
   const contentEl = document.getElementById('con-content');
 
+  const prevLength = dates.length;
   try {
     const res = await fetch(`/api/households/${HOUSEHOLD_ID}/consumption`);
     if (!res.ok) throw new Error();
@@ -28,6 +31,9 @@ export async function initConsumption() {
   } catch {
     dates = [];
   }
+
+  // Reset tips cache when new data has been saved
+  if (dates.length !== prevLength) tipsCache = null;
 
   if (!dates.length) {
     emptyEl.classList.remove('hidden');
@@ -138,6 +144,112 @@ async function loadAndRender() {
   // Run NILM (fast — linear scans over 1440 points)
   currentNilm = detectAppliances(watts);
   if (nilmVisible) renderNilmChart(currentNilm, currentMinute);
+
+  // Trigger tip generation lazily after the first successful NILM run
+  if (!tipsCache) {
+    tipsCache = 'loading';
+    renderTips(null); // show loading state immediately
+    generateTips(dates, fetchDayWatts).then(tips => {
+      tipsCache = tips;
+      renderTips(tips);
+    }).catch(() => {
+      tipsCache = null; // allow retry next render
+    });
+  } else if (Array.isArray(tipsCache)) {
+    renderTips(tipsCache);
+  } else if (tipsCache === 'loading') {
+    renderTips(null); // still loading
+  }
+}
+
+// ─── Tip helpers ───
+
+async function fetchDayWatts(date) {
+  try {
+    const res = await fetch(`/api/households/${HOUSEHOLD_ID}/consumption/${date}`);
+    if (!res.ok) return null;
+    return (await res.json()).watts_series;
+  } catch {
+    return null;
+  }
+}
+
+const APPLIANCE_SVG = {
+  dishwasher: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2"/>
+    <circle cx="12" cy="13" r="4"/>
+    <circle cx="8" cy="7" r="0.8" fill="currentColor" stroke="none"/>
+    <circle cx="12" cy="7" r="0.8" fill="currentColor" stroke="none"/>
+    <line x1="16" y1="6.5" x2="17" y2="7.5"/>
+  </svg>`,
+  washing_machine: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2"/>
+    <circle cx="12" cy="13" r="4"/>
+    <path d="M10 11.5 Q12 10 14 11.5"/>
+    <circle cx="7.5" cy="7" r="0.8" fill="currentColor" stroke="none"/>
+    <line x1="11" y1="7" x2="16" y2="7"/>
+  </svg>`,
+  ev_charger: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M13 2 L4 14 h7 l-1 8 l9-12 h-7 Z"/>
+  </svg>`,
+  dryer: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2"/>
+    <circle cx="12" cy="13" r="4"/>
+    <path d="M12 9 A4 4 0 0 1 16 13"/>
+    <circle cx="7.5" cy="7" r="0.8" fill="currentColor" stroke="none"/>
+    <circle cx="11" cy="7" r="0.8" fill="currentColor" stroke="none"/>
+  </svg>`,
+  oven: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2"/>
+    <rect x="6" y="10" width="12" height="8" rx="1"/>
+    <circle cx="8" cy="6.5" r="0.8" fill="currentColor" stroke="none"/>
+    <circle cx="12" cy="6.5" r="0.8" fill="currentColor" stroke="none"/>
+    <circle cx="16" cy="6.5" r="0.8" fill="currentColor" stroke="none"/>
+  </svg>`,
+  hob: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2" y="4" width="20" height="16" rx="2"/>
+    <circle cx="8" cy="10" r="2.5"/>
+    <circle cx="16" cy="10" r="2.5"/>
+    <circle cx="8" cy="17" r="1.5"/>
+    <circle cx="16" cy="17" r="1.5"/>
+  </svg>`,
+};
+
+function renderTips(tips) {
+  const section = document.getElementById('con-tips-section');
+  const list    = document.getElementById('tips-list');
+  if (!section || !list) return;
+
+  if (tips === null) {
+    // Loading state
+    section.classList.remove('hidden');
+    list.innerHTML = '<div class="tip-loading"><span class="tip-spinner"></span> Analysing 30 days of usage…</div>';
+    return;
+  }
+
+  if (!tips.length) {
+    section.classList.add('hidden');
+    return;
+  }
+
+  const ACCENT_COLORS = ['#2dd4bf', '#a78bfa', '#f97316'];
+
+  section.classList.remove('hidden');
+  list.innerHTML = tips.map((tip, i) => {
+    const color = ACCENT_COLORS[i % ACCENT_COLORS.length];
+    const svg   = APPLIANCE_SVG[tip.appId] ?? APPLIANCE_SVG.oven;
+    return `
+    <div class="tip-card" style="border-left-color:${color}">
+      <div class="tip-card-row">
+        <span class="tip-icon" style="color:${color}">${svg}</span>
+        <div class="tip-body">
+          <div class="tip-habit">${tip.habitLine}</div>
+          <div class="tip-saving">${tip.savingLine}</div>
+          <div class="tip-fun">${tip.funComparison}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ─── Main chart ───
