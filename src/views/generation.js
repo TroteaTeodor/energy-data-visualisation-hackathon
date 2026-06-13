@@ -2,11 +2,13 @@ import Chart from 'chart.js/auto';
 import { APPLIANCES } from '../generator/appliances.js';
 import { generateDataset } from '../generator/generate.js';
 
+const MINUTES_PER_DAY = 1440;
+
 let dataset = null;
 let previewDayIndex = 0;
 let dayChart = null;
 
-// Mutable copy of appliance config — user can toggle/edit before generating
+// Mutable copy — user can toggle/edit before generating
 let appliances = APPLIANCES.map(a => ({ ...a }));
 
 export function initGeneration() {
@@ -59,15 +61,17 @@ function onGenerate() {
   btn.textContent = 'Generating…';
   btn.disabled = true;
 
-  // Defer one tick so the button label updates before the synchronous work
   setTimeout(() => {
     dataset = generateDataset({ appliances });
 
-    const totalKwh = dataset.reduce((s, r) => s + r.watts_total * 0.25, 0) / 1000;
-    setText('res-days', '91');
+    // kWh: each row is 1 minute = 1/60 hour → watts / 60000 = kWh
+    const totalKwh = dataset.reduce((s, r) => s + r.watts_total, 0) / 60000;
+    const days = dataset.length / MINUTES_PER_DAY;
+
+    setText('res-days', Math.round(days).toString());
     setText('res-points', dataset.length.toLocaleString());
     setText('res-kwh', Math.round(totalKwh).toLocaleString());
-    setText('res-avg', (totalKwh / 91).toFixed(1));
+    setText('res-avg', (totalKwh / days).toFixed(1));
 
     document.getElementById('gen-results').classList.remove('hidden');
     previewDayIndex = 0;
@@ -80,46 +84,65 @@ function onGenerate() {
 
 // ─── Day preview ───
 
+// X-axis: show one label per hour (every 60th minute), empty string otherwise
+function buildLabels() {
+  return Array.from({ length: MINUTES_PER_DAY }, (_, m) =>
+    m % 60 === 0 ? `${String(m / 60).padStart(2, '0')}h` : ''
+  );
+}
+
 function renderDayPreview() {
   if (!dataset) return;
-  const daySlots = dataset.slice(previewDayIndex * 96, (previewDayIndex + 1) * 96);
-  if (!daySlots.length) return;
+  const start = previewDayIndex * MINUTES_PER_DAY;
+  const dayRows = dataset.slice(start, start + MINUTES_PER_DAY);
+  if (!dayRows.length) return;
 
-  const { date, day_of_week } = daySlots[0];
+  const { date, day_of_week } = dayRows[0];
   document.getElementById('preview-date').textContent = `${day_of_week}, ${date}`;
 
-  const labels = daySlots.map((_, i) => {
-    const h = Math.floor(i / 4);
-    const m = (i % 4) * 15;
-    return (m === 0) ? `${String(h).padStart(2, '0')}h` : '';
-  });
-  const data = daySlots.map(r => r.watts_total);
+  const data = dayRows.map(r => r.watts_total);
 
   if (!dayChart) {
     dayChart = new Chart(document.getElementById('day-preview-chart'), {
       type: 'line',
       data: {
-        labels,
+        labels: buildLabels(),
         datasets: [{
           data,
           borderColor: '#2dd4bf',
           backgroundColor: 'rgba(45,212,191,0.07)',
-          borderWidth: 1.5,
+          borderWidth: 1,
           fill: true,
-          tension: 0.35,
+          tension: 0.2,
           pointRadius: 0,
         }],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: false,
         plugins: {
           legend: { display: false },
-          tooltip: { callbacks: { label: c => ` ${c.parsed.y.toLocaleString()} W` } },
+          tooltip: {
+            callbacks: {
+              title: (items) => {
+                const m = items[0].dataIndex;
+                return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+              },
+              label: c => ` ${c.parsed.y.toLocaleString()} W`,
+            },
+          },
         },
         scales: {
           x: {
-            ticks: { color: '#64748b', font: { size: 9 }, maxRotation: 0 },
+            ticks: {
+              color: '#64748b',
+              font: { size: 9 },
+              maxRotation: 0,
+              // Only render non-empty labels
+              callback: (_, i) => buildLabels()[i] || null,
+              maxTicksLimit: 24,
+            },
             grid: { display: false },
           },
           y: {
@@ -131,30 +154,24 @@ function renderDayPreview() {
       },
     });
   } else {
-    dayChart.data.labels = labels;
     dayChart.data.datasets[0].data = data;
     dayChart.update('none');
   }
 
-  // ── Appliance events summary ──
+  // ── Appliance event summary ──
   const enabledApps = appliances.filter(a => a.enabled);
   const events = [];
 
   for (const app of enabledApps) {
-    let inRun = false;
-    let runStart = 0;
-    for (let s = 0; s <= 96; s++) {
-      const on = s < 96 && daySlots[s].appliances[app.id];
-      if (on && !inRun) { inRun = true; runStart = s; }
-      else if (!on && inRun) {
-        inRun = false;
-        events.push({ name: app.name, from: slotToTime(runStart), to: slotToTime(s), watts: app.watts });
-      }
+    let inRun = false, runStart = 0;
+    for (let m = 0; m <= MINUTES_PER_DAY; m++) {
+      const on = m < MINUTES_PER_DAY && dayRows[m].appliances[app.id];
+      if (on && !inRun)       { inRun = true; runStart = m; }
+      else if (!on && inRun)  { inRun = false; events.push({ name: app.name, from: minToTime(runStart), to: minToTime(m), watts: app.watts }); }
     }
   }
 
-  const summary = document.getElementById('day-appliance-summary');
-  summary.innerHTML = events.length
+  document.getElementById('day-appliance-summary').innerHTML = events.length
     ? events.map(e => `
         <div class="ap-event">
           <span class="ap-event-name">${e.name}</span>
@@ -164,8 +181,8 @@ function renderDayPreview() {
     : '<div class="gen-mix-empty">No major appliance events recorded for this day</div>';
 }
 
-function slotToTime(slot) {
-  return `${String(Math.floor(slot / 4)).padStart(2, '0')}:${String((slot % 4) * 15).padStart(2, '0')}`;
+function minToTime(minute) {
+  return `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
 }
 
 // ─── Export ───
@@ -181,9 +198,9 @@ function exportJson() {
 function exportCsv() {
   if (!dataset) return;
   const appIds = appliances.filter(a => a.enabled).map(a => a.id);
-  const header = ['timestamp', 'date', 'day_of_week', 'slot', 'watts_total', ...appIds].join(',');
+  const header = ['timestamp', 'date', 'day_of_week', 'minute', 'watts_total', ...appIds].join(',');
   const rows = dataset.map(r =>
-    [r.timestamp, r.date, r.day_of_week, r.slot, r.watts_total,
+    [r.timestamp, r.date, r.day_of_week, r.minute, r.watts_total,
       ...appIds.map(id => r.appliances[id] ? '1' : '0')].join(',')
   );
   triggerDownload(

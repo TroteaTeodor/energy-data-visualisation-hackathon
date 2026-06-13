@@ -1,20 +1,42 @@
 import { APPLIANCES } from './appliances.js';
 import { baselineWatts, HEAT_PUMP_SEASONAL } from './baseline.js';
-import { gaussianNoise, applianceProfile } from './noise.js';
+import { gaussianNoise, phaseProfile, rampProfile } from './noise.js';
 import { scheduleDay } from './scheduler.js';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MINUTES_PER_DAY = 1440;
+
+// Fridge compressor cycling: kicks on every 20–28 min, runs for 10–15 min at ~150W.
+// This is deliberately kept out of the appliance list — it's a background signature,
+// not a user-controlled load, but important for NILM baseline realism.
+function generateFridgeCycles() {
+  const cycles = [];
+  let t = Math.floor(Math.random() * 20);
+  while (t < MINUTES_PER_DAY) {
+    const duration = 10 + Math.floor(Math.random() * 6);   // 10–15 min on
+    cycles.push({ start: t, duration });
+    t += duration + 18 + Math.floor(Math.random() * 10);   // 18–27 min off
+  }
+  return cycles;
+}
+
+// Returns per-minute wattage array for an appliance event.
+function buildProfile(app) {
+  return app.phases
+    ? phaseProfile(app.phases)
+    : rampProfile(app.watts, app.durationMinutes);
+}
 
 /**
- * Generates a full synthetic consumption dataset.
+ * Generates a full synthetic household consumption dataset at 1-minute resolution.
  *
  * @param {object}   options
- * @param {Date}     [options.startDate]   First day (default: 3 months ago from today)
+ * @param {Date}     [options.startDate]   First day (default: 3 months ago)
  * @param {number}   [options.days]        Number of days (default: 91)
  * @param {object[]} [options.appliances]  Appliance config (default: built-in list)
  *
- * @returns {object[]} Array of 96 * days rows:
- *   { timestamp, date, day_of_week, slot, watts_total, appliances: { [id]: boolean } }
+ * @returns {object[]}  1440 × days rows:
+ *   { timestamp, date, day_of_week, minute, watts_total, appliances: { [id]: boolean } }
  */
 export function generateDataset(options = {}) {
   const defaultStart = new Date();
@@ -33,50 +55,59 @@ export function generateDataset(options = {}) {
     const date = new Date(startDate);
     date.setDate(startDate.getDate() + d);
 
-    const month = date.getMonth();
-    const dateStr = date.toISOString().slice(0, 10);
-    const dayName = DAY_NAMES[date.getDay()];
+    const month      = date.getMonth();
+    const dateStr    = date.toISOString().slice(0, 10);
+    const dayName    = DAY_NAMES[date.getDay()];
     const heatFactor = HEAT_PUMP_SEASONAL[month];
 
-    // ── Schedule appliance events for this day ──
-    const events = scheduleDay(appliances, date, heatFactor);
+    // ── Schedule events for this day ──
+    const events   = scheduleDay(appliances, date, heatFactor);
+    const fridgeCycles = generateFridgeCycles();
 
-    // ── Build 96-slot wattage array ──
-    const slots = new Float32Array(96);
-    // Appliance ground-truth: which appliances are on per slot
-    const states = Object.fromEntries(appliances.map(a => [a.id, new Uint8Array(96)]));
+    // ── 1440-minute wattage array ──
+    const slots  = new Float32Array(MINUTES_PER_DAY);
+    const states = Object.fromEntries(appliances.map(a => [a.id, new Uint8Array(MINUTES_PER_DAY)]));
 
-    // Layer 1: baseline + noise
-    for (let s = 0; s < 96; s++) {
-      slots[s] = baselineWatts(s, month) + gaussianNoise(0, 18);
+    // Layer 1: baseline (standby, lighting, etc.) + gaussian noise
+    for (let m = 0; m < MINUTES_PER_DAY; m++) {
+      slots[m] = baselineWatts(m, month) + gaussianNoise(0, 12);
     }
 
-    // Layer 2: appliance events
-    for (const event of events) {
-      const app = appliances.find(a => a.id === event.applianceId);
-      if (!app) continue;
-      const profile = applianceProfile(app.watts, event.durationSlots);
-      for (let i = 0; i < event.durationSlots; i++) {
-        const s = event.startSlot + i;
-        if (s >= 96) break;
-        slots[s] += profile[i];
-        states[event.applianceId][s] = 1;
+    // Layer 2: fridge cycling
+    for (const cycle of fridgeCycles) {
+      for (let i = 0; i < cycle.duration; i++) {
+        const m = cycle.start + i;
+        if (m >= MINUTES_PER_DAY) break;
+        slots[m] += 150 * (1 + gaussianNoise(0, 0.06));
       }
     }
 
-    // ── Emit one row per slot ──
-    for (let s = 0; s < 96; s++) {
-      const h = Math.floor(s / 4);
-      const m = (s % 4) * 15;
-      const timestamp = `${dateStr}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+    // Layer 3: appliance events with realistic per-minute profiles
+    for (const event of events) {
+      const app = appliances.find(a => a.id === event.applianceId);
+      if (!app) continue;
+      const profile = buildProfile(app);
+      for (let i = 0; i < event.durationMinutes; i++) {
+        const m = event.startMinute + i;
+        if (m >= MINUTES_PER_DAY) break;
+        slots[m] += profile[i] ?? 0;
+        states[event.applianceId][m] = 1;
+      }
+    }
+
+    // ── Emit one row per minute ──
+    for (let m = 0; m < MINUTES_PER_DAY; m++) {
+      const h   = Math.floor(m / 60);
+      const min = m % 60;
+      const timestamp = `${dateStr}T${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}:00`;
 
       rows.push({
         timestamp,
         date: dateStr,
         day_of_week: dayName,
-        slot: s,
-        watts_total: Math.max(0, Math.round(slots[s])),
-        appliances: Object.fromEntries(appliances.map(a => [a.id, states[a.id][s] === 1])),
+        minute: m,
+        watts_total: Math.max(0, Math.round(slots[m])),
+        appliances: Object.fromEntries(appliances.map(a => [a.id, states[a.id][m] === 1])),
       });
     }
   }
