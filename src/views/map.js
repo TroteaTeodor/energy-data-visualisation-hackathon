@@ -176,16 +176,13 @@ function drawBelgiumGridGeoJSON(features) {
 function getPowerLineStyle(tags) {
   const voltage = parseVoltage(tags.voltage);
   const powerType = tags.power || 'line';
-  const stressColor = getStressColor(currentLoadRatio);
-  const baseColor = getVoltageColor(voltage, powerType);
   const isStreetLevel = powerType === 'minor_line' || voltage < 70000;
   const isCable = powerType === 'cable';
-  const stressBoost = 0.55 + currentLoadRatio * 0.45;
 
   return {
-    color: currentLoadRatio > 0.78 ? stressColor : baseColor,
+    color: getVoltageColor(voltage, powerType),
     weight: getLineWeight(voltage, powerType),
-    opacity: Math.min(1, (isStreetLevel ? 0.58 : 0.84) * stressBoost + 0.16),
+    opacity: isStreetLevel ? 0.55 : 0.82,
     dashArray: isCable ? '4, 6' : undefined,
     lineCap: 'round',
     lineJoin: 'round',
@@ -201,12 +198,6 @@ function getVoltageColor(voltage, powerType) {
   return '#64748b';
 }
 
-function getStressColor(loadRatio) {
-  if (loadRatio >= 0.86) return '#ef4444';
-  if (loadRatio >= 0.72) return '#f97316';
-  if (loadRatio >= 0.58) return '#facc15';
-  return '#2dd4bf';
-}
 
 function getLineWeight(voltage, powerType) {
   if (powerType === 'minor_line') return 1.8;
@@ -225,18 +216,10 @@ function parseVoltage(voltageTag) {
 
 function buildLineTooltip(tags) {
   const voltage = parseVoltage(tags.voltage);
-  const voltageText = voltage ? `${Math.round(voltage / 1000)} kV` : 'Voltage unknown';
-  const operator = tags.operator || tags.owner || 'Operator unknown';
-  const name = tags.name || tags.ref || 'Power infrastructure';
-  const type = tags.power === 'minor_line' ? 'distribution line' : tags.power || 'line';
-  const stress = Math.round(currentLoadRatio * 100);
-
-  return `
-    <b>${escapeHtml(name)}</b><br>
-    ${escapeHtml(type)} · ${voltageText}<br>
-    ${escapeHtml(operator)}<br>
-    Live national load stress: <b>${stress}%</b>
-  `;
+  const voltageText = voltage ? `${Math.round(voltage / 1000)} kV` : 'Unknown voltage';
+  const name = tags.name || tags.ref || 'Power line';
+  const type = tags.power === 'minor_line' ? 'Distribution' : tags.power === 'cable' ? 'Cable' : 'Transmission';
+  return `<b>${escapeHtml(name)}</b><br>${type} · ${voltageText} · <i>click for details</i>`;
 }
 
 function drawFallbackGrid() {
@@ -392,14 +375,7 @@ function escapeHtml(value) {
 export function updateHeatmap(totalMw) {
   currentLoadMw = Number(totalMw) || 0;
   currentLoadRatio = Math.max(0.18, Math.min(1, currentLoadMw / 13500));
-
-  if (gridLayer) {
-    gridLayer.eachLayer(layer => {
-      const tags = layer.options?.powerTags;
-      if (tags) layer.setStyle(getPowerLineStyle(tags));
-    });
-  }
-
+  // Lines keep their voltage-based colors — load is shown on click only
 }
 
 export function updateFlows() {
@@ -753,29 +729,31 @@ function setLocationStatus(text) {
 
 function showLineDetailsFromOSM(tags, latlng) {
   const voltage = parseVoltage(tags.voltage);
-  const voltageText = voltage ? `${Math.round(voltage / 1000)} kV` : 'Voltage unknown';
-  const operator = tags.operator || tags.owner || 'Operator unknown';
+  const voltageText = voltage ? `${Math.round(voltage / 1000)} kV` : 'Unknown';
+  const operator = tags.operator || tags.owner || 'Unknown';
   const name = tags.name || tags.ref || 'Power line';
-  const powerType = tags.power === 'minor_line' ? 'Distribution line' : tags.power === 'cable' ? 'Cable' : 'Transmission line';
+  const powerType = tags.power === 'minor_line' ? 'Distribution' : tags.power === 'cable' ? 'HVDC Cable' : 'Transmission';
+  const circuits = tags.circuits ? `${tags.circuits} circuits` : null;
+  const cables = tags.cables ? `${tags.cables} cables` : null;
+  const color = getVoltageColor(voltage, tags.power);
 
   const detailsHtml = `
     <div class="line-details-popup">
-      <h3>${escapeHtml(name)}</h3>
+      <h3 style="color:${color}">${escapeHtml(name)}</h3>
       <div class="details-grid">
-        <span class="detail-label">Voltage:</span>
-        <span class="detail-value">${voltageText}</span>
-        <span class="detail-label">Type:</span>
+        <span class="detail-label">Voltage</span>
+        <span class="detail-value" style="color:${color}">${voltageText}</span>
+        <span class="detail-label">Type</span>
         <span class="detail-value">${powerType}</span>
-        <span class="detail-label">Operator:</span>
+        <span class="detail-label">Operator</span>
         <span class="detail-value">${escapeHtml(operator)}</span>
-        <span class="detail-label">Grid load:</span>
-        <span class="detail-value">${Math.round(currentLoadRatio * 100)}%</span>
+        ${circuits ? `<span class="detail-label">Circuits</span><span class="detail-value">${circuits}</span>` : ''}
+        ${cables ? `<span class="detail-label">Cables</span><span class="detail-value">${cables}</span>` : ''}
+        <span class="detail-label">National load</span>
+        <span class="detail-value">${currentLoadMw.toLocaleString()} MW · ${Math.round(currentLoadRatio * 100)}%</span>
       </div>
     </div>
   `;
 
-  L.popup()
-    .setLatLng(latlng)
-    .setContent(detailsHtml)
-    .openOn(map);
+  L.popup().setLatLng(latlng).setContent(detailsHtml).openOn(map);
 }
