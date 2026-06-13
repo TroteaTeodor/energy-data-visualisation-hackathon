@@ -2,6 +2,7 @@ import { APPLIANCES } from './appliances.js';
 import { baselineWatts, HEAT_PUMP_SEASONAL } from './baseline.js';
 import { gaussianNoise, phaseProfile, rampProfile } from './noise.js';
 import { scheduleDay } from './scheduler.js';
+import { generateEvProfile } from './ev.js';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MINUTES_PER_DAY = 1440;
@@ -42,6 +43,9 @@ export function generateDataset(options = {}) {
   const defaultStart = new Date();
   defaultStart.setMonth(defaultStart.getMonth() - 3);
   defaultStart.setHours(0, 0, 0, 0);
+  // Snap back to Monday of that week (getDay: 0=Sun, 1=Mon … 6=Sat)
+  const dow = defaultStart.getDay();
+  defaultStart.setDate(defaultStart.getDate() - (dow === 0 ? 6 : dow - 1));
 
   const {
     startDate = defaultStart,
@@ -60,8 +64,19 @@ export function generateDataset(options = {}) {
     const dayName    = DAY_NAMES[date.getDay()];
     const heatFactor = HEAT_PUMP_SEASONAL[month];
 
+    // ── EV: generate a per-day CC/CV profile so duration varies ──
+    const evApp    = appliances.find(a => a.id === 'ev_charger' && a.enabled);
+    const evToday  = evApp ? generateEvProfile(evApp.watts) : null;
+
+    // Provide scheduler with today's EV duration (varies by start/target SoC)
+    const dailyAppliances = appliances.map(a =>
+      a.id === 'ev_charger' && evToday
+        ? { ...a, durationMinutes: evToday.durationMinutes }
+        : a
+    );
+
     // ── Schedule events for this day ──
-    const events   = scheduleDay(appliances, date, heatFactor);
+    const events   = scheduleDay(dailyAppliances, date, heatFactor);
     const fridgeCycles = generateFridgeCycles();
 
     // ── 1440-minute wattage array ──
@@ -86,7 +101,10 @@ export function generateDataset(options = {}) {
     for (const event of events) {
       const app = appliances.find(a => a.id === event.applianceId);
       if (!app) continue;
-      const profile = buildProfile(app);
+      // EV uses today's CC/CV profile; all others use phase/ramp profiles
+      const profile = (app.id === 'ev_charger' && evToday)
+        ? evToday.profile
+        : buildProfile(app);
       for (let i = 0; i < event.durationMinutes; i++) {
         const m = event.startMinute + i;
         if (m >= MINUTES_PER_DAY) break;

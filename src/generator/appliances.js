@@ -10,36 +10,36 @@ export const APPLIANCES = [
   {
     id: 'washing_machine',
     name: 'Washing Machine',
-    watts: 2000,
+    watts: 1400,
     durationMinutes: 90,
     timeWindows: [[360, 780]],       // 06h–13h start
     dayWeights: [0.9, 0.5, 0.5, 0.5, 0.5, 1.0, 1.0],
     frequency: 0.4,
     enabled: true,
     phases: [
-      { duration: 5,  watts: 300  }, // cold fill
-      { duration: 15, watts: 2100 }, // water heating
-      { duration: 20, watts: 500  }, // main wash
-      { duration: 10, watts: 2000 }, // rinse heat
-      { duration: 15, watts: 380  }, // rinse
-      { duration: 10, watts: 280  }, // spin
-      { duration: 5,  watts: 150  }, // drain
-      { duration: 10, watts: 80   }, // coast / end
+      { duration: 5,  watts: 200  }, // cold fill
+      { duration: 15, watts: 1400 }, // water heating
+      { duration: 20, watts: 350  }, // main wash
+      { duration: 10, watts: 1350 }, // rinse heat
+      { duration: 15, watts: 270  }, // rinse
+      { duration: 10, watts: 200  }, // spin
+      { duration: 5,  watts: 100  }, // drain
+      { duration: 10, watts: 60   }, // coast / end
     ],
   },
   {
     id: 'dryer',
     name: 'Tumble Dryer',
-    watts: 2500,
+    watts: 1600,
     durationMinutes: 60,
     timeWindows: [[420, 900]],       // 07h–15h
     dayWeights: [0.9, 0.4, 0.4, 0.4, 0.4, 0.9, 1.0],
     frequency: 0.3,
     enabled: true,
     phases: [
-      { duration: 5,  watts: 1500 }, // heat up
-      { duration: 50, watts: 2450 }, // tumble
-      { duration: 5,  watts: 400  }, // cool-down
+      { duration: 5,  watts: 950  }, // heat up
+      { duration: 50, watts: 1600 }, // tumble
+      { duration: 5,  watts: 250  }, // cool-down
     ],
   },
   {

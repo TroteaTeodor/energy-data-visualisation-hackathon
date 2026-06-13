@@ -139,18 +139,17 @@
           </div>
         </div>
 
-        <!-- Day preview -->
-        <div class="card chart-card">
+        <!-- Week preview -->
+        <div class="card">
           <div class="card-title-row">
-            <div class="card-title">Day preview</div>
+            <div class="card-title">Week preview</div>
             <div class="day-nav">
-              <button class="nav-btn" id="btn-prev-day">←</button>
-              <span id="preview-date">—</span>
-              <button class="nav-btn" id="btn-next-day">→</button>
+              <button class="nav-btn" id="btn-prev-week">← Prev</button>
+              <span id="preview-week">—</span>
+              <button class="nav-btn" id="btn-next-week">Next →</button>
             </div>
           </div>
-          <div class="chart-wrap tall"><canvas id="day-preview-chart"></canvas></div>
-          <div id="day-appliance-summary" class="day-appliance-summary"></div>
+          <div class="week-charts grid grid-cols-4" id="week-charts"></div>
         </div>
 
         <!-- Export -->
