@@ -242,15 +242,14 @@ export async function generateTips(dates, fetchDayWatts) {
  * ±2-hour window over the last 14 historical days.
  *
  * @param {number[]} predictionWatts  1440-element array for today's predicted watts
- * @param {string}   todayDate        YYYY-MM-DD
+ * @param {number[]} prices24         Real hourly prices (EUR/kWh), float[24]
  * @param {Function} fetchDayWatts    (date) => Promise<number[]|null>
  * @param {Array}    dates            DB dates array — used to slice last 14 days
  * @returns {Promise<Array>}
  */
-export async function generateFutureTips(predictionWatts, todayDate, fetchDayWatts, dates) {
+export async function generateFutureTips(predictionWatts, prices24, fetchDayWatts, dates) {
   if (!predictionWatts || predictionWatts.length !== 1440) return [];
-
-  const prices24 = generatePricesForDate(todayDate);
+  if (!prices24 || prices24.length !== 24) return [];
   const predNilm = detectAppliances(predictionWatts);
 
   // Last 14 DB days for confidence scoring

@@ -2,6 +2,7 @@ import Chart from 'chart.js/auto';
 import { detectAppliances, APPLIANCE_META, APPLIANCE_ORDER } from '../nilm/detect.js';
 import { generateTips, generateFutureTips, APPLIANCE_LABEL } from '../nilm/tips.js';
 import { maybeNotifyTips } from './settings.js';
+import { getHourlyImbalancePrices, generatePricesForDate } from '../api/elia.js';
 
 export function updateConsumption() {}
 
@@ -20,6 +21,7 @@ let nilmVisible      = false;
 let listenersAttached = false;
 let tipsCache = null;
 let futureTipsCache = null;
+let todayPrices = null; // real Elia prices for today, fetched once per session
 
 export async function initConsumption() {
   const emptyEl   = document.getElementById('con-empty');
@@ -164,12 +166,25 @@ async function loadAndRender() {
       return;
     }
 
-    // Fetch prediction: used for chart overlay (rest of day) + future tips
+    // Fetch prediction + real Elia prices in parallel (both needed for future tips)
     if (isLatestDb) {
-      try {
-        const res = await fetch(`/api/households/${HOUSEHOLD_ID}/prediction/${selectedDate}`);
-        if (res.ok) predictionWatts = (await res.json()).watts_series;
-      } catch {}
+      const [predRes] = await Promise.allSettled([
+        fetch(`/api/households/${HOUSEHOLD_ID}/prediction/${selectedDate}`).then(r => r.ok ? r.json() : null),
+        todayPrices
+          ? Promise.resolve()
+          : getHourlyImbalancePrices().then(data => {
+              // Convert {hour, price}[] → float[24], fill gaps with synthetic fallback
+              const fallback = generatePricesForDate(selectedDate);
+              const arr = [...fallback];
+              for (const { hour, price } of data) arr[hour] = price;
+              todayPrices = arr;
+            }).catch(() => {
+              todayPrices = generatePricesForDate(selectedDate);
+            }),
+      ]);
+      if (predRes.status === 'fulfilled' && predRes.value) {
+        predictionWatts = predRes.value.watts_series;
+      }
     }
   }
 
@@ -261,7 +276,7 @@ async function loadAndRender() {
   } else if (!futureTipsCache) {
     futureTipsCache = 'loading';
     renderFutureTips(null);
-    generateFutureTips(predictionWatts, selectedDate, fetchDayWatts, dates).then(tips => {
+    generateFutureTips(predictionWatts, todayPrices, fetchDayWatts, dates).then(tips => {
       futureTipsCache = tips;
       renderFutureTips(tips);
     }).catch(() => {
