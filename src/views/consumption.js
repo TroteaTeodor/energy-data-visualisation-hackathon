@@ -233,7 +233,8 @@ async function loadAndRender() {
     }
   }
   const nilmClipMinute = predictionWatts ? MINUTES_PER_DAY - 1 : clipMinute;
-  if (nilmVisible) renderNilmChart(nilmToRender, nilmClipMinute, isPrediction);
+  // Always render so the chart is populated when the user toggles to NILM view
+  renderNilmChart(nilmToRender, nilmClipMinute, isPrediction);
 
   // Trigger tip generation lazily after the first successful NILM run
   if (!tipsCache) {
