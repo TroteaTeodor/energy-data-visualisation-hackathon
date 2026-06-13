@@ -217,8 +217,14 @@
           <div class="con-date-wrap">
             <span id="con-date-label" class="con-date-label">—</span>
             <span id="con-today-badge" class="today-badge">Today</span>
+            <span id="con-predict-badge" class="predict-badge hidden">Predicted</span>
           </div>
           <button class="nav-btn" id="con-next">Next →</button>
+        </div>
+
+        <!-- Prediction info bar -->
+        <div id="con-predict-bar" class="con-predict-bar hidden">
+          ◈ Prediction based on <span id="con-predict-days">—</span> historical <span id="con-predict-dow">—</span>s · Max 7 days ahead
         </div>
 
         <!-- Stats -->
@@ -243,23 +249,27 @@
             <div class="stat-value" id="con-avg">—</div>
             <div class="stat-unit">W</div>
           </div>
-          <div class="card stat-card big cost-card" id="cost-card">
+          <div class="card stat-card big" id="cost-card">
             <div class="stat-label">Est. Cost</div>
             <div class="stat-value" id="con-cost" style="color:var(--yellow)">—</div>
             <div class="stat-unit">€ / day</div>
           </div>
         </div>
 
-        <!-- 24h chart -->
+        <!-- Combined power + NILM chart -->
         <div class="card chart-card">
           <div class="card-title-row">
-            <div class="card-title">Household power (W)</div>
+            <div class="card-title" id="con-chart-title">Household power (W)</div>
             <div class="con-chart-actions">
               <span id="con-now-time" class="con-now-time"></span>
               <button class="btn-nilm-toggle" id="btn-nilm-toggle">Show NILM</button>
             </div>
           </div>
-          <div class="chart-wrap tall"><canvas id="con-chart"></canvas></div>
+          <div class="chart-wrap tall">
+            <canvas id="con-chart"></canvas>
+            <canvas id="con-nilm-chart" style="display:none"></canvas>
+          </div>
+          <div id="nilm-legend" class="nilm-legend" style="display:none"></div>
         </div>
 
         <!-- Hourly cost breakdown (hidden when no price data) -->
@@ -291,6 +301,7 @@
             <div id="tips-list" class="tips-list"></div>
           </div>
         </div>
+
 
       </div>
     </div>
