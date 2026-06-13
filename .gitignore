@@ -1,0 +1,62 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm/
+.pnpm-debug.log*
+
+# Environment
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+dist/
+build/
+*.egg-info/
+.venv/
+venv/
+env/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+.DS_Store
+Thumbs.db
+*.DS_Store
+
+# Build / Dependencies
+vendor/
+bundle/
+.cache/
+*.tsbuildinfo
+
+# Data (raw, never commit)
+data/raw/
+data/external/
+*.csv
+*.xlsx
+*.json
+!data/*.md
+
+# Logs
+logs/
+*.log
+
+# Testing
+coverage/
+.coverage
+htmlcov/
+.junit.xml
