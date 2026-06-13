@@ -2,6 +2,7 @@ import { getCurrentMix, computeMixPercentages, checkMyths } from './api/elia.js'
 import { initClock, updateGenMix, updateStats, updateBestHours, showMyth, storeDashboardState } from './views/dashboard.js';
 import { initMap, updateHeatmap, updateFlows, updateMapAttribution, invalidateMap } from './views/map.js';
 import { updateConsumption } from './views/consumption.js';
+import { initGeneration } from './views/generation.js';
 
 // ─── State ───
 let state = { mix: {}, totalMw: 0, mixPct: [], myths: [] };
@@ -82,6 +83,7 @@ async function init() {
 
   initTabs();
   initClock();
+  initGeneration();
   await initMap();
 
   // Initial data load

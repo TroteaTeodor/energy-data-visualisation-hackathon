@@ -98,12 +98,68 @@
   </div>
   </section>
 
-  <!-- ─── Data Generation (internal data generation — blank for now) ─── -->
+  <!-- ─── Data Generation ─── -->
   <section class="view page-view" id="view-generation">
     <div class="page-inner">
       <header class="page-head">
         <h1 class="page-title">Data Generation</h1>
+        <p class="page-sub">Generate 3 months of synthetic household power consumption data for NILM analysis.</p>
       </header>
+
+      <!-- Appliance configurator -->
+      <div class="card">
+        <div class="card-title">Appliances (grootverbruikers)</div>
+        <div id="appliance-list" class="appliance-list"></div>
+      </div>
+
+      <!-- Trigger -->
+      <button id="btn-generate" class="btn-generate">Generate 3 months of data</button>
+
+      <!-- Results — hidden until generated -->
+      <div id="gen-results" class="gen-results hidden">
+
+        <div class="stat-grid">
+          <div class="card stat-card big">
+            <div class="stat-label">Days generated</div>
+            <div class="stat-value" id="res-days">—</div>
+          </div>
+          <div class="card stat-card big">
+            <div class="stat-label">Data points</div>
+            <div class="stat-value" id="res-points">—</div>
+          </div>
+          <div class="card stat-card big">
+            <div class="stat-label">Total energy</div>
+            <div class="stat-value" id="res-kwh">—</div>
+            <div class="stat-unit">kWh</div>
+          </div>
+          <div class="card stat-card big">
+            <div class="stat-label">Avg per day</div>
+            <div class="stat-value" id="res-avg">—</div>
+            <div class="stat-unit">kWh/day</div>
+          </div>
+        </div>
+
+        <!-- Day preview -->
+        <div class="card chart-card">
+          <div class="card-title-row">
+            <div class="card-title">Day preview</div>
+            <div class="day-nav">
+              <button class="nav-btn" id="btn-prev-day">←</button>
+              <span id="preview-date">—</span>
+              <button class="nav-btn" id="btn-next-day">→</button>
+            </div>
+          </div>
+          <div class="chart-wrap tall"><canvas id="day-preview-chart"></canvas></div>
+          <div id="day-appliance-summary" class="day-appliance-summary"></div>
+        </div>
+
+        <!-- Export -->
+        <div class="export-row">
+          <button class="btn-export" id="btn-export-json">Export JSON</button>
+          <button class="btn-export" id="btn-export-csv">Export CSV</button>
+        </div>
+
+      </div>
     </div>
   </section>
 
