@@ -20,6 +20,8 @@ services:
     environment:
       DATABASE_URL: postgresql://energy:energy@db:5432/energy
       PORT: 3001
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
     depends_on:
       db:
         condition: service_healthy

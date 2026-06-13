@@ -309,7 +309,15 @@ function renderFutureTips(tips) {
   }
 
   section.classList.remove('hidden');
-  list.innerHTML = tips.map(tip => {
+
+  // Push tips to backend so /tips Telegram command can serve them
+  fetch('/api/tips/cache', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tips }),
+  }).catch(() => {});
+
+  list.innerHTML = tips.map((tip, i) => {
     const { appId, confidence, startHour, optimalHour, saving } = tip;
     const priceBased = confidence === null;
     const badgeClass = priceBased ? 'confidence-badge--price'
@@ -326,14 +334,37 @@ function renderFutureTips(tips) {
       ? 'EV charging accounts for the largest share of household energy cost — today\'s spot prices confirm this window 💡'
       : 'Based on your usage pattern over the last 14 days 📊';
     return `
-    <div class="future-tip-card" style="border-left-color:${color}">
+    <div class="future-tip-card" style="border-left-color:${color}" data-tip-idx="${i}">
       <span class="confidence-badge ${badgeClass}">${badgeText}</span>
       <div class="future-tip-action">
         Instead of charging your ${label} at ${fromHour}, try ${toHour} — save <strong>€${saving.toFixed(2)}</strong> today
       </div>
       <div class="future-tip-meta">${meta}</div>
+      <button class="tip-send-btn" data-tip-idx="${i}" title="Send to Telegram">📤 Send to Telegram</button>
     </div>`;
   }).join('');
+
+  // Event delegation for send buttons
+  list.querySelectorAll('.tip-send-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.tipIdx);
+      const tip = tips[idx];
+      btn.textContent = '⏳ Sending…';
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/telegram/tip', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tip }),
+        });
+        btn.textContent = res.ok ? '✅ Sent!' : '❌ Failed';
+      } catch {
+        btn.textContent = '❌ Failed';
+      }
+      setTimeout(() => { btn.textContent = '📤 Send to Telegram'; btn.disabled = false; }, 2500);
+    });
+  });
 }
 
 // ─── Tip helpers ───

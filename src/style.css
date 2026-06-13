@@ -1080,6 +1080,21 @@ footer a:hover { color: var(--accent); }
   color: var(--text3);
   font-style: italic;
 }
+.tip-send-btn {
+  margin-top: 0.55rem;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: var(--radius-sm);
+  color: var(--text2);
+  padding: 0.25rem 0.65rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.tip-send-btn:hover { border-color: rgba(255,255,255,0.4); color: #ffffff; }
+.tip-send-btn:disabled { opacity: 0.5; cursor: default; }
 
 /* ─── Responsive: Tablet & Mobile ─── */
 @media (max-width: 768px) {
