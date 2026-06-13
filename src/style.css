@@ -181,8 +181,30 @@ footer a:hover { color: var(--accent); }
 
 /* ─── Responsive ─── */
 @media (max-width: 768px) {
-  .app-layout { flex-direction: column; height: auto; }
-  #sidebar { width: 100%; min-width: 0; max-height: 50vh; border-right: none; border-bottom: 1px solid var(--border); }
-  main { height: 50vh; }
   .clock-time { font-size: 1.8rem; }
+  .app-layout {
+    flex-direction: column;
+    height: calc(100vh - 48px - 40px);
+  }
+  #sidebar {
+    width: 100%; min-width: 0;
+    max-height: 40%; flex-shrink: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  main { flex: 1; min-height: 0; }
+  #map-attribution { flex-direction: column; align-items: flex-start; gap: 0.2rem; }
+  .row-cards .stat-card { padding: 0.5rem; }
+  .stat-card .stat-value { font-size: 1rem; }
+  .gen-bar { height: 20px; }
+  .gen-bar-label { width: 48px; font-size: 0.65rem; }
+  header { padding: 0.4rem 0.75rem; }
+  .logo { font-size: 0.8rem; }
+}
+
+@media (max-width: 480px) {
+  #sidebar { max-height: 35%; }
+  .clock-time { font-size: 1.5rem; }
+  #best-hours-canvas { height: 32px; }
 }

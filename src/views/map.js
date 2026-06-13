@@ -74,7 +74,11 @@ export async function initMap() {
     legendAdded = true;
   }
 
+  // Handle window resize & orientation change
   map.on('resize', () => map.invalidateSize());
+  const handleResize = () => setTimeout(() => map?.invalidateSize(), 100);
+  window.addEventListener('resize', handleResize);
+  window.addEventListener('orientationchange', () => setTimeout(handleResize, 400));
   setTimeout(() => map.invalidateSize(), 300);
 }
 
