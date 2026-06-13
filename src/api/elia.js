@@ -1,8 +1,9 @@
 // Elia Open Data API client
 const BASE = 'https://opendata.elia.be/api/explore/v2.1/catalog/datasets';
 
+// Cache TTL shorter than poll interval so every 5-min tick gets fresh data
+const CACHE_TTL = 4 * 60 * 1000;
 const cache = new Map();
-const CACHE_TTL = 5 * 60 * 1000;
 
 async function fetchDataset(datasetId, params = {}) {
   const cacheKey = datasetId + JSON.stringify(params);
@@ -10,9 +11,9 @@ async function fetchDataset(datasetId, params = {}) {
   if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data;
 
   const url = new URL(`${BASE}/${datasetId}/records`);
-  url.searchParams.set('limit', String(params.limit || 100));
-  if (params.refine) url.searchParams.set('refine', params.refine);
+  url.searchParams.set('limit', String(params.limit || 50));
   if (params.order_by) url.searchParams.set('order_by', params.order_by);
+  if (params.where) url.searchParams.set('where', params.where);
 
   try {
     const res = await fetch(url);
@@ -21,24 +22,9 @@ async function fetchDataset(datasetId, params = {}) {
     cache.set(cacheKey, { data: json, ts: Date.now() });
     return json;
   } catch (err) {
-    console.warn(`Elia API fetch failed for ${datasetId}:`, err.message);
+    console.warn(`Elia fetch failed [${datasetId}]:`, err.message);
     return null;
   }
-}
-
-export async function getGenerationMix() {
-  const data = await fetchDataset('ods201', { limit: 100, order_by: 'datetime desc' });
-  return data?.results || null;
-}
-
-export async function getDayAheadSchedule() {
-  const data = await fetchDataset('ods034', { limit: 200, order_by: 'datetime desc' });
-  return data?.results || null;
-}
-
-export async function getCrossBorder() {
-  const data = await fetchDataset('ods007', { limit: 50, order_by: 'datetime desc' });
-  return data?.results || null;
 }
 
 // Demo data: plausible Belgian grid mix
@@ -62,25 +48,35 @@ export function getDemoMix() {
 }
 
 export async function getCurrentMix() {
-  const records = await getGenerationMix();
-  
-  if (!records) {
-    console.log('Using demo data (API unavailable)');
+  try {
+    // Step 1: find the latest available timestamp
+    const probe = await fetchDataset('ods201', { limit: 1, order_by: 'datetime desc' });
+    const latestTs = probe?.results?.[0]?.datetime;
+    if (!latestTs) throw new Error('No timestamp from Elia');
+
+    // Step 2: fetch ALL fuel types for exactly that timestamp
+    const data = await fetchDataset('ods201', {
+      limit: 50,
+      order_by: 'fueltypepublication asc',
+      where: `datetime="${latestTs}"`,
+    });
+
+    const results = data?.results || [];
+    if (!results.length) throw new Error('No records for latest timestamp');
+
+    const mix = {};
+    for (const r of results) {
+      const fuel = r.fueltypepublication;
+      const mw = r.generatedpower;
+      if (fuel && mw != null) mix[fuel] = { fuel, mw, datetime: r.datetime };
+    }
+
+    if (Object.keys(mix).length < 3) throw new Error('Too few fuel types — likely partial data');
+    return mix;
+  } catch (err) {
+    console.warn('Elia getCurrentMix failed, using demo:', err.message);
     return getDemoMix();
   }
-  
-  if (!records.length) return {};
-
-  const latest = {};
-  for (const r of records) {
-    const fuel = r.fueltypepublication;
-    if (fuel && r.generatedpower != null) {
-      if (!latest[fuel] || new Date(r.datetime) > new Date(latest[fuel].datetime)) {
-        latest[fuel] = { fuel, mw: r.generatedpower, datetime: r.datetime };
-      }
-    }
-  }
-  return Object.keys(latest).length ? latest : getDemoMix();
 }
 
 export function computeMixPercentages(mix) {

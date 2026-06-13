@@ -1,6 +1,6 @@
 import { getCurrentMix, computeMixPercentages, checkMyths } from './api/elia.js';
 import { initClock, updateGenMix, updateStats, updateBestHours, showMyth, storeDashboardState } from './views/dashboard.js';
-import { initMap, updateHeatmap, updateFlows, updateMapAttribution, invalidateMap } from './views/map.js';
+import { initMap, updateHeatmap, updateFlows, updateMapAttribution, invalidateMap, setEliaRefresher } from './views/map.js';
 import { updateConsumption, initConsumption } from './views/consumption.js';
 import { initGeneration } from './views/generation.js';
 
@@ -87,11 +87,16 @@ async function init() {
   initGeneration();
   await initMap();
 
+  // Give map.js a way to trigger a fresh Elia fetch on popup open
+  setEliaRefresher(updateAll);
+
   // Initial data load
   await updateAll();
 
-  // Poll every 5 min
-  setInterval(updateAll, 5 * 60 * 1000);
+  // Poll every 2 min
+  setInterval(updateAll, 2 * 60 * 1000);
 }
+
+export { updateAll };
 
 init();
