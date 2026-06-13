@@ -11,6 +11,11 @@
 <body>
   <header>
     <div class="logo">⚡ Brussels Energy Reality</div>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-view="overview">Overview</button>
+      <button class="tab" data-view="generation">Data Generation</button>
+      <button class="tab" data-view="consumption">Power Consumption</button>
+    </nav>
     <div class="header-right">
       <span class="live-badge">
         <span class="live-dot"></span>
@@ -20,6 +25,8 @@
     </div>
   </header>
 
+  <div class="views" id="views">
+  <section class="view active" id="view-overview">
   <div class="app-layout">
     <aside id="sidebar">
       <!-- Digital Clock -->
@@ -88,6 +95,62 @@
         <span id="map-timestamp">Updated: --</span>
       </div>
     </main>
+  </div>
+  </section>
+
+  <!-- ─── Data Generation (internal data generation — blank for now) ─── -->
+  <section class="view page-view" id="view-generation">
+    <div class="page-inner">
+      <header class="page-head">
+        <h1 class="page-title">Data Generation</h1>
+      </header>
+    </div>
+  </section>
+
+  <!-- ─── Power Consumption ─── -->
+  <section class="view page-view" id="view-consumption">
+    <div class="page-inner">
+      <header class="page-head">
+        <h1 class="page-title">Power Consumption</h1>
+        <p class="page-sub">Belgium's electricity demand and how it's distributed across Brussels.</p>
+      </header>
+
+      <div class="stat-grid">
+        <div class="card stat-card big">
+          <div class="stat-label">Total load</div>
+          <div class="stat-value" id="con-total">—</div>
+          <div class="stat-unit">MW</div>
+        </div>
+        <div class="card stat-card big">
+          <div class="stat-label">Brussels estimate</div>
+          <div class="stat-value" id="con-brussels">—</div>
+          <div class="stat-unit">MW (~10%)</div>
+        </div>
+        <div class="card stat-card big">
+          <div class="stat-label">Per capita</div>
+          <div class="stat-value" id="con-percapita">—</div>
+          <div class="stat-unit">W / person</div>
+        </div>
+        <div class="card stat-card big">
+          <div class="stat-label">Demand level</div>
+          <div class="stat-value" id="con-peak">—</div>
+          <div class="stat-unit">% of daily peak</div>
+        </div>
+      </div>
+
+      <div class="card chart-card">
+        <div class="card-title">Typical 24-hour demand curve</div>
+        <div class="chart-wrap tall"><canvas id="con-curve"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Estimated consumption by Brussels commune</div>
+        <div id="con-communes" class="breakdown-list">
+          <div class="gen-mix-empty">Waiting for data...</div>
+        </div>
+      </div>
+    </div>
+  </section>
   </div>
 
   <footer>

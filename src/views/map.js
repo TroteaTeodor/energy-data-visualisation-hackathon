@@ -169,7 +169,7 @@ function drawEntryPoints() {
 }
 
 // ─── Brussels communes heatmap ───
-const COMMUNES = [
+export const COMMUNES = [
   { name: 'Brussels Centre', pop: 185000, lat: 50.8503, lng: 4.3517 },
   { name: 'Schaerbeek', pop: 133000, lat: 50.8673, lng: 4.3833 },
   { name: 'Anderlecht', pop: 120000, lat: 50.8333, lng: 4.3000 },
@@ -231,6 +231,11 @@ export function updateFlows(mix) {
   // Entry points are static. The flow direction/color updates are
   // already handled by the global state via updateMapAttribution.
   // Keep the entry markers static.
+}
+
+// Recalculate map size — call after the map's tab becomes visible
+export function invalidateMap() {
+  if (map) setTimeout(() => map.invalidateSize(), 50);
 }
 
 export function updateMapAttribution(timestamp) {
