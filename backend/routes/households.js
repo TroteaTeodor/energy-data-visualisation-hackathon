@@ -57,7 +57,7 @@ router.post('/:id/consumption', async (req, res) => {
 router.get('/:id/consumption', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      'SELECT date, day_of_week FROM consumption_days WHERE household_id = $1 ORDER BY date',
+      'SELECT date::text, day_of_week FROM consumption_days WHERE household_id = $1 ORDER BY date',
       [parseInt(req.params.id, 10)]
     );
     res.json(rows);
@@ -70,7 +70,7 @@ router.get('/:id/consumption', async (req, res) => {
 router.get('/:id/consumption/:date', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT date, day_of_week, watts_series
+      `SELECT date::text, day_of_week, watts_series
        FROM consumption_days WHERE household_id = $1 AND date = $2`,
       [parseInt(req.params.id, 10), req.params.date]
     );

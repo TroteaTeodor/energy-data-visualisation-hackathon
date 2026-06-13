@@ -169,42 +169,58 @@
     <div class="page-inner">
       <header class="page-head">
         <h1 class="page-title">Power Consumption</h1>
-        <p class="page-sub">Belgium's electricity demand and how it's distributed across Brussels.</p>
+        <p class="page-sub">Your household's energy usage — minute by minute.</p>
       </header>
 
-      <div class="stat-grid">
-        <div class="card stat-card big">
-          <div class="stat-label">Total load</div>
-          <div class="stat-value" id="con-total">—</div>
-          <div class="stat-unit">MW</div>
-        </div>
-        <div class="card stat-card big">
-          <div class="stat-label">Brussels estimate</div>
-          <div class="stat-value" id="con-brussels">—</div>
-          <div class="stat-unit">MW (~10%)</div>
-        </div>
-        <div class="card stat-card big">
-          <div class="stat-label">Per capita</div>
-          <div class="stat-value" id="con-percapita">—</div>
-          <div class="stat-unit">W / person</div>
-        </div>
-        <div class="card stat-card big">
-          <div class="stat-label">Demand level</div>
-          <div class="stat-value" id="con-peak">—</div>
-          <div class="stat-unit">% of daily peak</div>
-        </div>
+      <div id="con-empty" class="con-empty hidden">
+        No data saved yet. Go to Data Generation, generate and save your data first.
       </div>
 
-      <div class="card chart-card">
-        <div class="card-title">Typical 24-hour demand curve</div>
-        <div class="chart-wrap tall"><canvas id="con-curve"></canvas></div>
-      </div>
+      <div id="con-content" class="hidden">
 
-      <div class="card">
-        <div class="card-title">Estimated consumption by Brussels commune</div>
-        <div id="con-communes" class="breakdown-list">
-          <div class="gen-mix-empty">Waiting for data...</div>
+        <!-- Date navigation -->
+        <div class="card con-nav">
+          <button class="nav-btn" id="con-prev">← Prev</button>
+          <div class="con-date-wrap">
+            <span id="con-date-label" class="con-date-label">—</span>
+            <span id="con-today-badge" class="today-badge">Today</span>
+          </div>
+          <button class="nav-btn" id="con-next">Next →</button>
         </div>
+
+        <!-- Stats -->
+        <div class="stat-grid">
+          <div class="card stat-card big">
+            <div class="stat-label" id="con-now-label">Now</div>
+            <div class="stat-value" id="con-current">—</div>
+            <div class="stat-unit">W</div>
+          </div>
+          <div class="card stat-card big">
+            <div class="stat-label">Total <span id="con-period-label">today</span></div>
+            <div class="stat-value" id="con-kwh">—</div>
+            <div class="stat-unit">kWh</div>
+          </div>
+          <div class="card stat-card big">
+            <div class="stat-label">Peak</div>
+            <div class="stat-value" id="con-peak">—</div>
+            <div class="stat-unit">W</div>
+          </div>
+          <div class="card stat-card big">
+            <div class="stat-label">Average</div>
+            <div class="stat-value" id="con-avg">—</div>
+            <div class="stat-unit">W</div>
+          </div>
+        </div>
+
+        <!-- 24h chart -->
+        <div class="card chart-card">
+          <div class="card-title-row">
+            <div class="card-title">Household power (W)</div>
+            <div id="con-now-time" class="con-now-time"></div>
+          </div>
+          <div class="chart-wrap tall"><canvas id="con-chart"></canvas></div>
+        </div>
+
       </div>
     </div>
   </section>

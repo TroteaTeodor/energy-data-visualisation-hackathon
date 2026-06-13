@@ -1,7 +1,7 @@
 import { getCurrentMix, computeMixPercentages, checkMyths } from './api/elia.js';
 import { initClock, updateGenMix, updateStats, updateBestHours, showMyth, storeDashboardState } from './views/dashboard.js';
 import { initMap, updateHeatmap, updateFlows, updateMapAttribution, invalidateMap } from './views/map.js';
-import { updateConsumption } from './views/consumption.js';
+import { updateConsumption, initConsumption } from './views/consumption.js';
 import { initGeneration } from './views/generation.js';
 
 // ─── State ───
@@ -73,6 +73,7 @@ function initTabs() {
       tabs.forEach(t => t.classList.toggle('active', t === tab));
       views.forEach(v => v.classList.toggle('active', v.id === `view-${name}`));
       if (name === 'overview') invalidateMap();
+      if (name === 'consumption') initConsumption();
     });
   });
 }

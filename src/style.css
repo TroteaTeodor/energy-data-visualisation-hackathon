@@ -404,6 +404,49 @@ footer a:hover { color: var(--accent); }
 }
 .btn-export:hover { border-color: var(--accent); color: var(--accent); }
 
+/* ─── Power Consumption tab ─── */
+#con-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.con-empty {
+  color: var(--text2);
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 3rem 1rem;
+}
+.con-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.9rem;
+}
+.con-date-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  justify-content: center;
+}
+.con-date-label { font-size: 0.9rem; font-weight: 600; color: var(--text1); }
+.today-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--accent);
+  color: #0f172a;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+}
+.con-now-time {
+  font-size: 0.72rem;
+  color: rgba(251,191,36,0.9);
+  font-variant-numeric: tabular-nums;
+}
+
 .btn-save-db {
   padding: 0.55rem 1rem;
   background: var(--accent);
