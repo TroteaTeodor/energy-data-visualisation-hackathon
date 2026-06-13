@@ -216,9 +216,23 @@
         <div class="card chart-card">
           <div class="card-title-row">
             <div class="card-title">Household power (W)</div>
-            <div id="con-now-time" class="con-now-time"></div>
+            <div class="con-chart-actions">
+              <span id="con-now-time" class="con-now-time"></span>
+              <button class="btn-nilm-toggle" id="btn-nilm-toggle">Show NILM</button>
+            </div>
           </div>
           <div class="chart-wrap tall"><canvas id="con-chart"></canvas></div>
+        </div>
+
+        <!-- NILM breakdown (hidden until toggled) -->
+        <div id="con-nilm-section" class="hidden">
+          <div class="card chart-card">
+            <div class="card-title-row">
+              <div class="card-title">NILM breakdown — estimated appliance contributions</div>
+            </div>
+            <div class="chart-wrap tall"><canvas id="con-nilm-chart"></canvas></div>
+            <div id="nilm-legend" class="nilm-legend"></div>
+          </div>
         </div>
 
       </div>
