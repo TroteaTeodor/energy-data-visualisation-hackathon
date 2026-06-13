@@ -48,8 +48,6 @@ data/raw/
 data/external/
 *.csv
 *.xlsx
-*.json
-!data/*.md
 
 # Logs
 logs/

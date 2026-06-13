@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Brussels Energy Reality</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <header>
+    <div class="logo">⚡ Brussels Energy Reality</div>
+    <nav id="tabs">
+      <button class="tab active" data-view="clock">Energy Clock</button>
+      <button class="tab" data-view="map">Where It Comes From</button>
+      <button class="tab" data-view="heatmap">Brussels Heatmap</button>
+    </nav>
+    <div id="live-indicator" class="live-dot">● LIVE</div>
+  </header>
+
+  <main>
+    <section id="view-clock" class="view active"></section>
+    <section id="view-map" class="view"></section>
+    <section id="view-heatmap" class="view"></section>
+  </main>
+
+  <div id="myth-card" class="myth-card hidden"></div>
+
+  <footer>
+    <p>Data: <a href="https://opendata.elia.be" target="_blank">Elia Open Data</a> · Built for Hackathon 13 June 2026</p>
+  </footer>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

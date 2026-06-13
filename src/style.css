@@ -1,0 +1,117 @@
+:root {
+  --bg: #0a0e1a;
+  --surface: #131a2e;
+  --surface2: #1c2541;
+  --text: #e8edf5;
+  --text2: #8892b0;
+  --accent: #4ECDC4;
+  --border: #2a3560;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  padding: 1rem 2rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.logo { font-size: 1.2rem; font-weight: 700; }
+#tabs { display: flex; gap: 0.25rem; flex: 1; }
+.tab {
+  padding: 0.5rem 1.2rem;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text2);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all .2s;
+}
+.tab:hover { background: var(--surface2); color: var(--text); }
+.tab.active { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+.live-dot { font-size: 0.8rem; color: #4ade80; animation: pulse 2s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+main { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
+.view { display: none; }
+.view.active { display: block; }
+
+/* Myth Card */
+.myth-card {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  max-width: 360px;
+  background: var(--surface2);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 1.2rem;
+  z-index: 1000;
+  transition: all .3s;
+}
+.myth-card.hidden { transform: translateY(120%); opacity: 0; }
+.myth-card .myth-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.4rem; }
+.myth-card .myth-text { font-size: 0.9rem; color: var(--text2); line-height: 1.4; }
+.myth-card .myth-close {
+  position: absolute; top: 0.5rem; right: 0.8rem;
+  background: none; border: none; color: var(--text2); cursor: pointer; font-size: 1.2rem;
+}
+
+/* Clock View */
+#clock-canvas-wrapper {
+  display: flex; flex-direction: column; align-items: center;
+  background: var(--surface); border-radius: 16px; padding: 2rem;
+  border: 1px solid var(--border);
+}
+#clock-container { position: relative; width: 100%; max-width: 500px; margin: 0 auto; }
+#clock-stats {
+  display: flex; gap: 2rem; margin-top: 1.5rem; flex-wrap: wrap; justify-content: center;
+}
+.stat-card {
+  background: var(--surface2); border-radius: 12px; padding: 1rem 1.5rem; text-align: center;
+  min-width: 120px;
+}
+.stat-card .stat-value { font-size: 1.8rem; font-weight: 700; }
+.stat-card .stat-label { font-size: 0.8rem; color: var(--text2); margin-top: 0.2rem; }
+.stat-card .stat-unit { font-size: 0.7rem; color: var(--text2); }
+#fuel-legend { display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: center; margin-top: 1.5rem; }
+.fuel-legend-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: var(--text2); }
+.fuel-legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+/* Map View */
+#world-map { height: 600px; border-radius: 12px; border: 1px solid var(--border); margin-top: 1rem; }
+#map-sidebar {
+  background: var(--surface); border-radius: 12px; padding: 1.2rem; border: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+#map-sidebar h3 { margin-bottom: 0.8rem; color: var(--accent); }
+#flow-list { display: flex; gap: 1rem; flex-wrap: wrap; }
+.flow-item { 
+  background: var(--surface2); border-radius: 8px; padding: 0.6rem 1rem;
+  display: flex; align-items: center; gap: 0.6rem; font-size: 0.85rem;
+}
+
+/* Heatmap View */
+#heatmap-container { position: relative; }
+#brussels-map { height: 600px; border-radius: 12px; border: 1px solid var(--border); margin-top: 1rem; }
+#heatmap-info {
+  background: var(--surface); border-radius: 12px; padding: 1.2rem; border: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+#heatmap-info h3 { margin-bottom: 0.5rem; color: var(--accent); }
+
+footer {
+  text-align: center; padding: 1.5rem; color: var(--text2); font-size: 0.8rem;
+  border-top: 1px solid var(--border); margin-top: 2rem;
+}
+footer a { color: var(--accent); text-decoration: none; }
