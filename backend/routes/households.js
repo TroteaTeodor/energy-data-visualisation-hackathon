@@ -81,4 +81,37 @@ router.get('/:id/consumption/:date', async (req, res) => {
   }
 });
 
+// GET /api/households/:id/prediction/:date — average of same weekday from history
+router.get('/:id/prediction/:date', async (req, res) => {
+  try {
+    const householdId = parseInt(req.params.id, 10);
+    const targetDate  = req.params.date;
+
+    const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const dow = DAY_NAMES[new Date(targetDate + 'T12:00:00Z').getUTCDay()];
+
+    const { rows } = await pool.query(
+      `SELECT watts_series, price_series FROM consumption_days
+       WHERE household_id = $1 AND day_of_week = $2 AND date < $3
+       ORDER BY date DESC LIMIT 8`,
+      [householdId, dow, targetDate]
+    );
+
+    if (!rows.length) return res.status(404).json({ error: 'No historical data for prediction' });
+
+    const n   = rows.length;
+    const len = rows[0].watts_series.length;
+    const watts_series = Array.from({ length: len }, (_, i) =>
+      Math.round(rows.reduce((s, r) => s + (r.watts_series[i] ?? 0), 0) / n)
+    );
+
+    // Use the most recent matching day's price_series (prices repeat by weekday)
+    const price_series = rows[0].price_series ?? null;
+
+    res.json({ watts_series, price_series, day_of_week: dow, days_averaged: n, date: targetDate });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 export default router;

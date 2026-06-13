@@ -744,6 +744,25 @@ footer a:hover { color: var(--accent); }
   padding: 0.15rem 0.45rem;
   border-radius: 999px;
 }
+.predict-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: #a78bfa;
+  color: #1e0a4a;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+}
+.con-predict-bar {
+  background: rgba(167,139,250,0.08);
+  border: 1px solid rgba(167,139,250,0.25);
+  border-radius: var(--radius);
+  padding: 0.45rem 0.85rem;
+  font-size: 0.7rem;
+  color: #a78bfa;
+  margin-bottom: 0.5rem;
+}
 .con-chart-actions { display: flex; align-items: center; gap: 0.6rem; }
 
 .btn-nilm-toggle {
