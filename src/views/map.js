@@ -1,4 +1,7 @@
 import 'leaflet';
+// refreshEliaData is injected after init to avoid circular imports
+let refreshEliaData = null;
+export function setEliaRefresher(fn) { refreshEliaData = fn; }
 
 const FLUVIUS_STREET_URL = 'https://opendata.fluvius.be/api/explore/v2.1/catalog/datasets/1_03-verbruiksgegevens-op-straatniveau/records';
 let map = null;
@@ -15,6 +18,8 @@ let belgiumGridFeatures = [];
 let belgiumGridTopology = null;  // Map<featureIdx, Set<featureIdx>>
 let snappedGenerationSites = [];
 let snappedEntryPoints = [];
+let activeLinePopup = null;   // { tags, latlng }
+let activePopupRef = null;    // actual Leaflet popup object — updated directly
 let userMarker = null;
 let pathLayer = null;
 let userLocation = null;
@@ -163,8 +168,6 @@ function drawBelgiumGridGeoJSON(features) {
     const line = L.polyline(coords, { ...style, pane: 'gridPane', powerTags: tags })
       .addTo(gridLayer);
 
-    line.bindTooltip(buildLineTooltip(tags), { sticky: true, direction: 'top' });
-
     line.on('click', (e) => {
       L.DomEvent.stopPropagation(e);
       showLineDetailsFromOSM(tags, e.latlng);
@@ -237,11 +240,6 @@ function drawFallbackGrid() {
       [[line.from.lat, line.from.lng], [line.to.lat, line.to.lng]],
       { ...style, fallbackLineData: line }
     ).addTo(fallbackLayer);
-
-    polyline.bindTooltip(
-      `<b>${line.label}</b><br>${Math.round(line.voltage / 1000)} kV<br><i>Click for details</i>`,
-      { direction: 'center', sticky: false }
-    );
 
     polyline.on('click', (e) => {
       L.DomEvent.stopPropagation(e);
@@ -375,7 +373,10 @@ function escapeHtml(value) {
 export function updateHeatmap(totalMw) {
   currentLoadMw = Number(totalMw) || 0;
   currentLoadRatio = Math.max(0.18, Math.min(1, currentLoadMw / 13500));
-  // Lines keep their voltage-based colors — load is shown on click only
+  // Refresh open line popup directly via stored reference
+  if (activePopupRef && activeLinePopup) {
+    activePopupRef.setContent(buildLinePopupHtml(activeLinePopup.tags));
+  }
 }
 
 export function updateFlows() {
@@ -441,7 +442,7 @@ function initLocationFeature() {
   toggleGridBtn?.addEventListener('click', () => {
     if (showOnlyMyPath) {
       showOnlyMyPath = false;
-      gridLayer.addTo(map);
+      gridLayer.eachLayer(l => { if (l.options?.powerTags) l.setStyle(getPowerLineStyle(l.options.powerTags)); });
       toggleGridBtn.classList.add('active');
       togglePathBtn.classList.remove('active');
     }
@@ -450,7 +451,8 @@ function initLocationFeature() {
   togglePathBtn?.addEventListener('click', () => {
     if (!showOnlyMyPath) {
       showOnlyMyPath = true;
-      map.removeLayer(gridLayer);
+      // Make lines transparent but keep them on the map so clicks still work
+      gridLayer.eachLayer(l => { if (l.options?.powerTags) l.setStyle({ opacity: 0, weight: 8 }); });
       togglePathBtn.classList.add('active');
       toggleGridBtn.classList.remove('active');
     }
@@ -727,17 +729,42 @@ function setLocationStatus(text) {
   if (el) el.textContent = text;
 }
 
-function showLineDetailsFromOSM(tags, latlng) {
+function estimateLineLoad(tags) {
+  const voltage = parseVoltage(tags.voltage);
+  const circuits = Math.max(1, parseInt(tags.circuits) || 1);
+  const isCable = tags.power === 'cable';
+
+  // Thermal capacity per circuit by voltage level (standard Belgian grid values)
+  let mwPerCircuit;
+  if (voltage >= 380000)      mwPerCircuit = 1400;
+  else if (voltage >= 220000) mwPerCircuit = 700;
+  else if (voltage >= 150000) mwPerCircuit = 450;
+  else if (voltage >= 70000)  mwPerCircuit = 180;
+  else if (voltage >= 30000)  mwPerCircuit = 60;
+  else                        mwPerCircuit = 20;
+
+  if (isCable) mwPerCircuit *= 0.75; // cables derate vs. overhead
+
+  const capacity = mwPerCircuit * circuits;
+  const flow = Math.round(capacity * currentLoadRatio);
+  const pct = Math.round(currentLoadRatio * 100);
+  return { capacity: Math.round(capacity), flow, pct };
+}
+
+function buildLinePopupHtml(tags) {
   const voltage = parseVoltage(tags.voltage);
   const voltageText = voltage ? `${Math.round(voltage / 1000)} kV` : 'Unknown';
   const operator = tags.operator || tags.owner || 'Unknown';
   const name = tags.name || tags.ref || 'Power line';
   const powerType = tags.power === 'minor_line' ? 'Distribution' : tags.power === 'cable' ? 'HVDC Cable' : 'Transmission';
-  const circuits = tags.circuits ? `${tags.circuits} circuits` : null;
-  const cables = tags.cables ? `${tags.cables} cables` : null;
+  const circuits = parseInt(tags.circuits) || 1;
   const color = getVoltageColor(voltage, tags.power);
+  const { capacity, flow, pct } = estimateLineLoad(tags);
 
-  const detailsHtml = `
+  // Load bar color
+  const barColor = pct >= 85 ? '#ef4444' : pct >= 65 ? '#f97316' : pct >= 40 ? '#fbbf24' : '#4ade80';
+
+  return `
     <div class="line-details-popup">
       <h3 style="color:${color}">${escapeHtml(name)}</h3>
       <div class="details-grid">
@@ -747,13 +774,39 @@ function showLineDetailsFromOSM(tags, latlng) {
         <span class="detail-value">${powerType}</span>
         <span class="detail-label">Operator</span>
         <span class="detail-value">${escapeHtml(operator)}</span>
-        ${circuits ? `<span class="detail-label">Circuits</span><span class="detail-value">${circuits}</span>` : ''}
-        ${cables ? `<span class="detail-label">Cables</span><span class="detail-value">${cables}</span>` : ''}
-        <span class="detail-label">National load</span>
-        <span class="detail-value">${currentLoadMw.toLocaleString()} MW · ${Math.round(currentLoadRatio * 100)}%</span>
+        <span class="detail-label">Circuits</span>
+        <span class="detail-value">${circuits}</span>
+        <span class="detail-label">Capacity</span>
+        <span class="detail-value">~${capacity.toLocaleString()} MW</span>
+      </div>
+      <div class="popup-load-section">
+        <div class="popup-load-label">
+          <span>Estimated load</span>
+          <span style="color:${barColor};font-weight:700">~${flow.toLocaleString()} MW · ${pct}%</span>
+        </div>
+        <div class="popup-load-track">
+          <div class="popup-load-fill" style="width:${pct}%;background:${barColor}"></div>
+        </div>
+        <div class="popup-load-note">Based on national grid utilisation · updates live</div>
       </div>
     </div>
   `;
+}
 
-  L.popup().setLatLng(latlng).setContent(detailsHtml).openOn(map);
+function showLineDetailsFromOSM(tags, latlng) {
+  activeLinePopup = { tags, latlng };
+
+  if (!activePopupRef) {
+    activePopupRef = L.popup({ autoClose: false, closeOnClick: false });
+    // Only clear refs when the user explicitly closes the popup
+    activePopupRef.on('remove', () => { activeLinePopup = null; activePopupRef = null; });
+  }
+
+  activePopupRef
+    .setLatLng(latlng)
+    .setContent(buildLinePopupHtml(tags))
+    .openOn(map);
+
+  // Fetch fresh Elia data so the load value is current on click
+  if (refreshEliaData) refreshEliaData();
 }

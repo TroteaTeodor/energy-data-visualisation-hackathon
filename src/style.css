@@ -317,26 +317,53 @@ footer a:hover { color: var(--accent); }
   margin-top: 0.15rem;
 }
 .line-details-popup {
-  min-width: 200px;
+  min-width: 220px;
 }
 .line-details-popup h3 {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   margin-bottom: 0.5rem;
-  color: var(--accent);
+  font-weight: 700;
 }
 .details-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem 0.75rem;
-  font-size: 0.8rem;
+  grid-template-columns: auto 1fr;
+  gap: 0.3rem 0.75rem;
+  font-size: 0.75rem;
 }
 .detail-label {
   color: var(--text3);
-  font-weight: 600;
 }
 .detail-value {
   color: var(--text);
-  font-weight: 700;
+  font-weight: 600;
+}
+.popup-load-section {
+  margin-top: 0.6rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--glass-border);
+}
+.popup-load-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  margin-bottom: 0.3rem;
+  color: var(--text2);
+}
+.popup-load-track {
+  height: 6px;
+  background: var(--surface2);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.popup-load-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s ease, background 0.4s ease;
+}
+.popup-load-note {
+  font-size: 0.6rem;
+  color: var(--text3);
+  margin-top: 0.25rem;
 }
 
 /* ─── My Energy Path ─── */
