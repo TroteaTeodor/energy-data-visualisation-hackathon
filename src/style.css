@@ -493,6 +493,37 @@ footer a:hover { color: var(--accent); }
   font-weight: 600;
 }
 
+/* ─── Map view My Home / National pill toggle ─── */
+.map-mode-toggle {
+  display: flex;
+  background: rgba(30,41,59,0.85);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  padding: 4px;
+  gap: 3px;
+  margin-top: 0;
+}
+.vmode-btn {
+  flex: 1;
+  text-align: center;
+  padding: 0.48rem 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text2);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+}
+.vmode-btn:hover { color: var(--text1); }
+.vmode-btn.active {
+  background: var(--accent);
+  color: #0f172a;
+  font-weight: 700;
+}
+
 /* ─── User Location Marker ─── */
 .user-marker {
   position: relative;
