@@ -1,7 +1,8 @@
 import Chart from 'chart.js/auto';
 import { detectAppliances, APPLIANCE_META, APPLIANCE_ORDER } from '../nilm/detect.js';
-import { generateTips } from '../nilm/tips.js';
+import { generateTips, generateFutureTips, APPLIANCE_LABEL } from '../nilm/tips.js';
 import { maybeNotifyTips } from './settings.js';
+import { getHourlyImbalancePrices, generatePricesForDate } from '../api/elia.js';
 
 export function updateConsumption() {}
 
@@ -19,6 +20,9 @@ let currentMinute    = MINUTES_PER_DAY - 1;
 let nilmVisible      = false;
 let listenersAttached = false;
 let tipsCache = null;
+let futureTipsCache = null;
+let todayPrices = null;       // real Elia prices for today, fetched once per session
+let activeCostPrices = null;  // prices currently shown in the cost chart tooltip
 
 export async function initConsumption() {
   const emptyEl   = document.getElementById('con-empty');
@@ -163,12 +167,25 @@ async function loadAndRender() {
       return;
     }
 
-    // Fetch prediction to extend today's chart from now → midnight
-    if (isLatestDb && currentMinute < MINUTES_PER_DAY - 1) {
-      try {
-        const res = await fetch(`/api/households/${HOUSEHOLD_ID}/prediction/${selectedDate}`);
-        if (res.ok) predictionWatts = (await res.json()).watts_series;
-      } catch {}
+    // Fetch prediction + real Elia prices in parallel (both needed for future tips)
+    if (isLatestDb) {
+      const [predRes] = await Promise.allSettled([
+        fetch(`/api/households/${HOUSEHOLD_ID}/prediction/${selectedDate}`).then(r => r.ok ? r.json() : null),
+        todayPrices
+          ? Promise.resolve()
+          : getHourlyImbalancePrices().then(data => {
+              // Convert {hour, price}[] → float[24], fill gaps with synthetic fallback
+              const fallback = generatePricesForDate(selectedDate);
+              const arr = [...fallback];
+              for (const { hour, price } of data) arr[hour] = price;
+              todayPrices = arr;
+            }).catch(() => {
+              todayPrices = generatePricesForDate(selectedDate);
+            }),
+      ]);
+      if (predRes.status === 'fulfilled' && predRes.value) {
+        predictionWatts = predRes.value.watts_series;
+      }
     }
   }
 
@@ -192,8 +209,10 @@ async function loadAndRender() {
     ? `now  ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
     : '');
 
-  // Cost
-  const priceSeries = priceSeriesRaw?.length === 24 ? priceSeriesRaw.map(Number) : null;
+  // Cost — for today use real Elia prices (same source as Energy Prices page)
+  const priceSeries = (isLatestDb && todayPrices)
+    ? todayPrices
+    : priceSeriesRaw?.length === 24 ? priceSeriesRaw.map(Number) : null;
   if (priceSeries) {
     const hourlyCost = Array(24).fill(0);
     slice.forEach((w, m) => {
@@ -210,9 +229,8 @@ async function loadAndRender() {
     document.getElementById('con-cost-section')?.classList.add('hidden');
   }
 
-  // Build "rest of day" prediction overlay for today.
-  // Include currentMinute in both series so the lines visually connect.
-  const todayPredictedVisible = predictionWatts
+  // Build "rest of day" prediction overlay for today (only when day isn't over).
+  const todayPredictedVisible = predictionWatts && currentMinute < MINUTES_PER_DAY - 1
     ? predictionWatts.map((w, i) => i >= currentMinute ? w : null)
     : null;
 
@@ -253,6 +271,69 @@ async function loadAndRender() {
   } else if (tipsCache === 'loading') {
     renderTips(null);
   }
+
+  // Future tips: prediction-based, only meaningful on the latest DB day
+  if (!isLatestDb || !predictionWatts) {
+    futureTipsCache = null;
+    renderFutureTips([]);
+  } else if (!futureTipsCache) {
+    futureTipsCache = 'loading';
+    renderFutureTips(null);
+    generateFutureTips(predictionWatts, todayPrices, fetchDayWatts, dates).then(tips => {
+      futureTipsCache = tips;
+      renderFutureTips(tips);
+    }).catch(() => {
+      futureTipsCache = null;
+    });
+  } else if (Array.isArray(futureTipsCache)) {
+    renderFutureTips(futureTipsCache);
+  } else if (futureTipsCache === 'loading') {
+    renderFutureTips(null);
+  }
+}
+
+function renderFutureTips(tips) {
+  const section = document.getElementById('con-future-tips-section');
+  const list    = document.getElementById('future-tips-list');
+  if (!section || !list) return;
+
+  if (tips === null) {
+    section.classList.remove('hidden');
+    list.innerHTML = '<div class="tip-loading"><span class="tip-spinner"></span> Computing today\'s predictions…</div>';
+    return;
+  }
+
+  if (!tips.length) {
+    section.classList.add('hidden');
+    return;
+  }
+
+  section.classList.remove('hidden');
+  list.innerHTML = tips.map(tip => {
+    const { appId, confidence, startHour, optimalHour, saving } = tip;
+    const priceBased = confidence === null;
+    const badgeClass = priceBased ? 'confidence-badge--price'
+                     : confidence >= 80 ? 'confidence-badge--high'
+                     : 'confidence-badge--mid';
+    const color      = priceBased ? '#2dd4bf'
+                     : confidence >= 80 ? '#4ade80'
+                     : '#fbbf24';
+    const badgeText  = priceBased ? '⚡ biggest saver' : `${confidence}% confident`;
+    const label      = APPLIANCE_LABEL[appId] ?? appId.replace('_', ' ');
+    const fromHour   = `${String(startHour).padStart(2, '0')}:00`;
+    const toHour     = `${String(optimalHour).padStart(2, '0')}:00`;
+    const meta       = priceBased
+      ? 'EV charging accounts for the largest share of household energy cost — today\'s spot prices confirm this window 💡'
+      : 'Based on your usage pattern over the last 14 days 📊';
+    return `
+    <div class="future-tip-card" style="border-left-color:${color}">
+      <span class="confidence-badge ${badgeClass}">${badgeText}</span>
+      <div class="future-tip-action">
+        Instead of charging your ${label} at ${fromHour}, try ${toHour} — save <strong>€${saving.toFixed(2)}</strong> today
+      </div>
+      <div class="future-tip-meta">${meta}</div>
+    </div>`;
+  }).join('');
 }
 
 // ─── Tip helpers ───
@@ -350,6 +431,38 @@ const X_LABELS = Array.from({ length: MINUTES_PER_DAY }, (_, m) =>
   m % 360 === 0 ? `${String(m / 60).padStart(2, '0')}:00` : ''
 );
 
+function computeAvgLine(data) {
+  // One average dot per hour, placed at the midpoint minute of that hour.
+  // Chart.js spanGaps + tension draws a smooth curve through the 24 points.
+  const result = new Array(MINUTES_PER_DAY).fill(null);
+  for (let h = 0; h < 24; h++) {
+    const slice = data.slice(h * 60, (h + 1) * 60).filter(v => v !== null);
+    if (!slice.length) continue;
+    result[h * 60 + 30] = Math.round(slice.reduce((s, v) => s + v, 0) / slice.length);
+  }
+  return result;
+}
+
+const avgLinePlugin = {
+  id: 'avgLine',
+  afterDraw(c) {
+    const ds = c.data.datasets[2];
+    if (!ds?.data) return;
+    const lastIdx = ds.data.reduce((last, v, i) => v !== null ? i : last, -1);
+    if (lastIdx < 0) return;
+    const lastVal = ds.data[lastIdx];
+    const { ctx, chartArea, scales } = c;
+    const x = Math.min(scales.x.getPixelForValue(lastIdx) + 6, chartArea.right - 68);
+    const y = scales.y.getPixelForValue(lastVal);
+    ctx.save();
+    ctx.font = '600 10px system-ui';
+    ctx.fillStyle = 'rgba(251,191,36,0.85)';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${lastVal.toLocaleString()} W`, x, y - 5);
+    ctx.restore();
+  },
+};
+
 const nowLinePlugin = {
   id: 'nowLine',
   afterDraw(c) {
@@ -384,10 +497,10 @@ function renderMainChart(data, nowMinute, isPrediction, predOverlay = null) {
   const bgColor   = isPrediction ? 'rgba(167,139,250,0.07)' : 'rgba(45,212,191,0.07)';
   const dashArray = isPrediction ? [6, 4] : [];
   const predData  = predOverlay ?? new Array(MINUTES_PER_DAY).fill(null);
+  const avgData   = computeAvgLine(data);
 
   if (chart) {
     chart._nowMinute = nowMinute;
-    // Mutate existing dataset objects — don't replace references
     const ds0 = chart.data.datasets[0];
     ds0.data            = data;
     ds0.borderColor     = color;
@@ -395,6 +508,8 @@ function renderMainChart(data, nowMinute, isPrediction, predOverlay = null) {
     ds0.borderDash      = dashArray;
     const ds1 = chart.data.datasets[1];
     ds1.data            = predData;
+    const ds2 = chart.data.datasets[2];
+    ds2.data            = avgData;
     chart.options.scales.y.max = yMax;
     chart.update('none');
     return;
@@ -402,7 +517,7 @@ function renderMainChart(data, nowMinute, isPrediction, predOverlay = null) {
 
   chart = new Chart(canvas, {
     type: 'line',
-    plugins: [nowLinePlugin],
+    plugins: [nowLinePlugin, avgLinePlugin],
     data: {
       labels: X_LABELS,
       datasets: [
@@ -430,6 +545,20 @@ function renderMainChart(data, nowMinute, isPrediction, predOverlay = null) {
           pointRadius: 0,
           spanGaps: false,
         },
+        {
+          label: 'avg',
+          data: avgData,
+          borderColor: 'rgba(251,191,36,0.7)',
+          backgroundColor: 'transparent',
+          borderWidth: 1.5,
+          borderDash: [],
+          fill: false,
+          tension: 0.4,
+          pointRadius: 3,
+          pointBackgroundColor: 'rgba(251,191,36,0.85)',
+          pointBorderColor: 'transparent',
+          spanGaps: true,
+        },
       ],
     },
     options: {
@@ -446,6 +575,7 @@ function renderMainChart(data, nowMinute, isPrediction, predOverlay = null) {
             },
             label: c => {
               if (c.parsed.y == null) return null;
+              if (c.dataset.label === 'avg') return ` ${c.parsed.y.toLocaleString()} W avg`;
               const tag = c.dataset.label === 'predicted' ? ' (predicted)' : '';
               return ` ${c.parsed.y.toLocaleString()} W${tag}`;
             },
@@ -476,20 +606,37 @@ function renderNilmChart(nilm, clipMinute, isPrediction) {
   if (!canvas) return;
 
   const datasets = APPLIANCE_ORDER.map(id => {
-    const meta = APPLIANCE_META[id];
-    const raw  = nilm[id] ?? [];
-    const data = raw.map((w, i) => (isPrediction || i <= clipMinute) ? w : null);
+    const meta  = APPLIANCE_META[id];
+    const raw   = nilm[id] ?? [];
+    const data  = raw.map((w, i) => (isPrediction || i <= clipMinute) ? w : null);
+    const color = meta.color;
     return {
       label: meta.label,
       data,
-      backgroundColor: hexToRgba(meta.color, isPrediction ? 0.5 : 0.82),
-      borderColor: meta.color,
+      backgroundColor: hexToRgba(color, isPrediction ? 0.5 : 0.82),
+      borderColor: color,
       borderWidth: isPrediction ? 0 : 0.5,
       borderDash: isPrediction ? [4, 4] : [],
       fill: true,
       tension: 0.15,
       pointRadius: 0,
       spanGaps: false,
+      // Dim the predicted portion (after currentMinute) on today's live view.
+      // Reads currentMinute at draw-time so no need to update on re-renders.
+      segment: {
+        backgroundColor: ctx =>
+          currentMinute < MINUTES_PER_DAY - 1 && ctx.p0DataIndex >= currentMinute
+            ? hexToRgba(color, 0.18)
+            : undefined,
+        borderColor: ctx =>
+          currentMinute < MINUTES_PER_DAY - 1 && ctx.p0DataIndex >= currentMinute
+            ? hexToRgba(color, 0.3)
+            : undefined,
+        borderDash: ctx =>
+          currentMinute < MINUTES_PER_DAY - 1 && ctx.p0DataIndex >= currentMinute
+            ? [4, 4]
+            : undefined,
+      },
     };
   });
 
@@ -578,6 +725,8 @@ function renderCostChart(hourlyCost, priceSeries, clipMinute) {
   const canvas = document.getElementById('con-cost-chart');
   if (!canvas) return;
 
+  activeCostPrices = priceSeries; // always keep the module-level ref in sync
+
   const clipHour  = Math.floor(clipMinute / 60);
   const sorted    = [...priceSeries].sort((a, b) => a - b);
   const cheapT    = sorted[Math.floor(sorted.length * 0.28)];
@@ -596,6 +745,8 @@ function renderCostChart(hourlyCost, priceSeries, clipMinute) {
   if (costChart) {
     costChart.data.datasets[0].data            = hourlyCost;
     costChart.data.datasets[0].backgroundColor = barColors;
+    costChart.options.plugins.tooltip.callbacks.label =
+      c => ` €${c.parsed.y.toFixed(4)} · ${(activeCostPrices[c.dataIndex] * 100).toFixed(1)}¢/kWh`;
     costChart.update('none');
     return;
   }
@@ -614,7 +765,8 @@ function renderCostChart(hourlyCost, priceSeries, clipMinute) {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: c => ` €${c.parsed.y.toFixed(4)} · ${(priceSeries[c.dataIndex] * 100).toFixed(1)}¢/kWh`,
+            // reference activeCostPrices (module-level) so it always reflects the latest render
+            label: c => ` €${c.parsed.y.toFixed(4)} · ${(activeCostPrices[c.dataIndex] * 100).toFixed(1)}¢/kWh`,
           },
         },
       },
