@@ -82,11 +82,11 @@ function modalValue(arr) {
 
 // Find the cheapest start hour (whole-hour window of durationMin duration)
 // for a given appliance run cost situation.
-function cheapestStartHour(prices24, durationMin) {
+function cheapestStartHour(prices24, durationMin, minHour = 0) {
   let minCost = Infinity;
-  let bestHour = 0;
+  let bestHour = minHour;
   const totalMinutes = 24 * 60;
-  for (let start = 0; start <= totalMinutes - durationMin; start++) {
+  for (let start = minHour * 60; start <= totalMinutes - durationMin; start++) {
     let cost = 0;
     for (let m = start; m < start + durationMin; m++) {
       cost += prices24[Math.floor(m / 60)];
@@ -262,6 +262,9 @@ export async function generateFutureTips(predictionWatts, prices24, fetchDayWatt
   const validHist = histWatts.filter(w => w && w.length === 1440);
   if (validHist.length < 3) return [];
 
+  // Only suggest hours that are still ahead of now (minimum 1h buffer)
+  const nowHour = new Date().getHours() + 1;
+
   const tips = [];
 
   for (const appId of TIPABLE) {
@@ -275,12 +278,15 @@ export async function generateFutureTips(predictionWatts, prices24, fetchDayWatt
     const run = runs.reduce((a, b) => b.kWh > a.kWh ? b : a);
     const { startHour, durationMin, kWh } = run;
 
+    // Skip runs that are already underway or in the past
+    if (startHour < nowHour) continue;
+
     const actualCost  = kWh * prices24[startHour];
     const optimalCost = cheapestWindowCost(prices24, durationMin, kWh);
     const saving      = actualCost - optimalCost;
     if (saving < 0.05) continue;
 
-    const optimalHour = cheapestStartHour(prices24, durationMin);
+    const optimalHour = cheapestStartHour(prices24, durationMin, nowHour);
     if (optimalHour === startHour) continue;
 
     // Confidence: % of historical days where this appliance ran within ±2h of predicted start
@@ -301,15 +307,15 @@ export async function generateFutureTips(predictionWatts, prices24, fetchDayWatt
   // Always include an EV tip if one wasn't naturally detected.
   // Uses a typical Belgian EV session (7.4 kW × 2.5 h = 18.5 kWh) and today's real prices.
   if (!tips.some(t => t.appId === 'ev_charger')) {
-    const evKwh      = 18.5;          // typical session energy
-    const evDuration = 150;           // 2.5 h in minutes
-    // Most expensive starting hour in the 16–21 evening peak window
-    const peakHour = [16, 17, 18, 19, 20, 21].reduce(
-      (best, h) => prices24[h] > prices24[best] ? h : best, 16
+    const evKwh      = 18.5;
+    const evDuration = 150;
+    // Most expensive future peak hour (nowHour onwards, prefer 18–22 window)
+    const peakCandidates = [18, 19, 20, 21, 22].filter(h => h >= nowHour);
+    if (peakCandidates.length === 0) return tips; // too late in the day
+    const peakHour = peakCandidates.reduce(
+      (best, h) => prices24[h] > prices24[best] ? h : best, peakCandidates[0]
     );
-    const optimalHour = cheapestStartHour(prices24, evDuration);
-    const peakCost    = cheapestWindowCost(prices24, evDuration, evKwh) +
-                        (prices24[peakHour] - Math.min(...prices24)) * evKwh;
+    const optimalHour = cheapestStartHour(prices24, evDuration, nowHour);
     const actualCost  = evKwh * prices24[peakHour];
     const optimalCost = cheapestWindowCost(prices24, evDuration, evKwh);
     const saving      = actualCost - optimalCost;
