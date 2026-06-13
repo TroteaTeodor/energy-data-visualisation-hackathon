@@ -494,6 +494,10 @@ function initLocationFeature() {
   });
 }
 
+export async function setLocationByAddress(query) {
+  return runAddressSearch(query);
+}
+
 async function runAddressSearch(query) {
   if (!query) return;
   setLocationStatus('Searching…');

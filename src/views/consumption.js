@@ -1,6 +1,7 @@
 import Chart from 'chart.js/auto';
 import { detectAppliances, APPLIANCE_META, APPLIANCE_ORDER } from '../nilm/detect.js';
 import { generateTips } from '../nilm/tips.js';
+import { maybeNotifyTips } from './settings.js';
 
 export function updateConsumption() {}
 
@@ -243,6 +244,7 @@ async function loadAndRender() {
     generateTips(dates, fetchDayWatts).then(tips => {
       tipsCache = tips;
       renderTips(tips);
+      if (tips.length) maybeNotifyTips(tips);
     }).catch(() => {
       tipsCache = null;
     });

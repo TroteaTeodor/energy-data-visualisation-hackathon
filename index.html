@@ -13,9 +13,9 @@
     <div class="logo">⚡ Brussels Energy Reality</div>
     <nav class="tabs" id="tabs">
       <button class="tab active" data-view="overview">Overview</button>
-      <button class="tab" data-view="generation">Data Generation</button>
       <button class="tab" data-view="consumption">Power Consumption</button>
       <button class="tab" data-view="prices">⚡ Energy Prices</button>
+      <button class="tab" data-view="settings">Settings</button>
     </nav>
     <div class="header-right">
       <span class="live-badge">
@@ -129,72 +129,6 @@
       </div>
     </main>
   </div>
-  </section>
-
-  <!-- ─── Data Generation ─── -->
-  <section class="view page-view" id="view-generation">
-    <div class="page-inner">
-      <header class="page-head">
-        <h1 class="page-title">Data Generation</h1>
-        <p class="page-sub">Generate 3 months of synthetic household power consumption data for NILM analysis.</p>
-      </header>
-
-      <!-- Appliance configurator -->
-      <div class="card">
-        <div class="card-title">Appliances (grootverbruikers)</div>
-        <div id="appliance-list" class="appliance-list"></div>
-      </div>
-
-      <!-- Trigger -->
-      <button id="btn-generate" class="btn-generate">Generate 3 months of data</button>
-
-      <!-- Results — hidden until generated -->
-      <div id="gen-results" class="gen-results hidden">
-
-        <div class="stat-grid">
-          <div class="card stat-card big">
-            <div class="stat-label">Days generated</div>
-            <div class="stat-value" id="res-days">—</div>
-          </div>
-          <div class="card stat-card big">
-            <div class="stat-label">Data points</div>
-            <div class="stat-value" id="res-points">—</div>
-          </div>
-          <div class="card stat-card big">
-            <div class="stat-label">Total energy</div>
-            <div class="stat-value" id="res-kwh">—</div>
-            <div class="stat-unit">kWh</div>
-          </div>
-          <div class="card stat-card big">
-            <div class="stat-label">Avg per day</div>
-            <div class="stat-value" id="res-avg">—</div>
-            <div class="stat-unit">kWh/day</div>
-          </div>
-        </div>
-
-        <!-- Week preview -->
-        <div class="card">
-          <div class="card-title-row">
-            <div class="card-title">Week preview</div>
-            <div class="day-nav">
-              <button class="nav-btn" id="btn-prev-week">← Prev</button>
-              <span id="preview-week">—</span>
-              <button class="nav-btn" id="btn-next-week">Next →</button>
-            </div>
-          </div>
-          <div class="week-charts grid grid-cols-4" id="week-charts"></div>
-        </div>
-
-        <!-- Export / Save -->
-        <div class="export-row">
-          <button class="btn-export" id="btn-export-json">Export JSON</button>
-          <button class="btn-export" id="btn-export-csv">Export CSV</button>
-          <button class="btn-save-db" id="btn-save-db">Save to database</button>
-          <span class="db-status" id="db-status"></span>
-        </div>
-
-      </div>
-    </div>
   </section>
 
   <!-- ─── Power Consumption ─── -->
@@ -350,6 +284,254 @@
       <div class="price-source-note">
         Source: Elia Open Data · ods134 imbalance prices (EUR/MWh → €/kWh) ·
         Solid bars = today's actual · Dimmed bars = previous day reference
+      </div>
+    </div>
+  </section>
+  <!-- ─── Settings ─── -->
+  <section class="view page-view" id="view-settings">
+    <div class="settings-layout">
+
+      <!-- Sub-tab sidebar -->
+      <nav class="settings-sidenav">
+        <div class="settings-sidenav-title">Settings</div>
+        <button class="settings-sidetab active" data-panel="general">General</button>
+        <button class="settings-sidetab" data-panel="appliances">Appliances</button>
+        <button class="settings-sidetab" data-panel="integrations">Integrations</button>
+        <button class="settings-sidetab" data-panel="datagen">Data Generation</button>
+      </nav>
+
+      <!-- Panels -->
+      <div class="settings-panels">
+
+        <!-- General -->
+        <div class="settings-panel active" id="settings-panel-general">
+          <div class="page-inner settings-inner">
+            <header class="page-head">
+              <h1 class="page-title">General</h1>
+              <p class="page-sub">Personalise your dashboard experience.</p>
+            </header>
+
+            <div class="card settings-card">
+              <div class="card-title">Home Location</div>
+              <p class="settings-desc">Set your home address to automatically position your energy path on the map.</p>
+              <div class="settings-field">
+                <label class="settings-label" for="settings-address">Address</label>
+                <div class="settings-input-row">
+                  <input type="text" id="settings-address" class="settings-input" placeholder="Rue de la Loi 16, Bruxelles" autocomplete="off" />
+                  <button id="settings-address-save" class="settings-btn">Save</button>
+                </div>
+                <div id="settings-address-status" class="settings-status"></div>
+              </div>
+            </div>
+
+            <div class="card settings-card">
+              <div class="card-title">Savings Notifications</div>
+              <p class="settings-desc">Receive a browser notification when we detect a potential monthly saving above your threshold.</p>
+              <div class="settings-field">
+                <label class="settings-label" for="settings-threshold">Minimum saving to notify (€/month)</label>
+                <div class="settings-input-row">
+                  <input type="number" id="settings-threshold" class="settings-input settings-input--narrow" min="0" step="0.5" placeholder="2.00" />
+                  <button id="settings-threshold-save" class="settings-btn">Save</button>
+                </div>
+              </div>
+              <div class="settings-divider"></div>
+              <div class="settings-field">
+                <label class="settings-label">Browser permission</label>
+                <div id="settings-notif-status" class="settings-status"></div>
+                <button id="settings-notif-enable" class="settings-btn settings-btn--outline">Enable notifications</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Appliances -->
+        <div class="settings-panel hidden" id="settings-panel-appliances">
+          <div class="page-inner settings-inner">
+            <header class="page-head">
+              <h1 class="page-title">Appliances</h1>
+              <p class="page-sub">Configure which appliances are present in your household. Used for data generation and NILM disaggregation.</p>
+            </header>
+            <div class="card">
+              <div class="card-title-row">
+                <div class="card-title">Appliances</div>
+                <button class="ap-add-btn" disabled title="Coming soon">+ Add appliance</button>
+              </div>
+              <div id="appliance-list" class="appliance-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Integrations -->
+        <div class="settings-panel hidden" id="settings-panel-integrations">
+          <div class="page-inner settings-inner">
+            <header class="page-head">
+              <h1 class="page-title">Integrations</h1>
+              <p class="page-sub">Data sources and APIs powering this dashboard.</p>
+            </header>
+
+            <div class="integration-section-label">Live APIs</div>
+
+            <!-- Elia ods201 -->
+            <div class="card integration-card">
+              <div class="integration-header">
+                <div class="integration-logo integration-logo--elia">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 L4 14 h7 l-1 8 l9-12 h-7 Z"/></svg>
+                </div>
+                <div class="integration-meta">
+                  <div class="integration-name">Elia Open Data <span class="integration-dataset">ods201</span></div>
+                  <div class="integration-url">opendata.elia.be</div>
+                </div>
+                <span class="integration-badge integration-badge--connected">Live</span>
+              </div>
+              <p class="settings-desc">Real-time electricity generation mix by fuel type, including nuclear, gas, solar, wind, and other sources. Values are provided in MW and displayed in the Overview sidebar.</p>
+              <div class="integration-chips">
+                <span class="integration-chip">Generation mix</span>
+                <span class="integration-chip">Nuclear</span>
+                <span class="integration-chip">Solar</span>
+                <span class="integration-chip">Wind</span>
+                <span class="integration-chip">MW</span>
+              </div>
+            </div>
+
+            <!-- Elia ods134 -->
+            <div class="card integration-card">
+              <div class="integration-header">
+                <div class="integration-logo integration-logo--elia">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 L4 14 h7 l-1 8 l9-12 h-7 Z"/></svg>
+                </div>
+                <div class="integration-meta">
+                  <div class="integration-name">Elia Open Data <span class="integration-dataset">ods134</span></div>
+                  <div class="integration-url">opendata.elia.be</div>
+                </div>
+                <span class="integration-badge integration-badge--connected">Live</span>
+              </div>
+              <p class="settings-desc">Quarter-hourly imbalance prices in EUR/MWh, converted to EUR/kWh for display. Shown in the Energy Prices tab and used to calculate potential savings in personalised tips.</p>
+              <div class="integration-chips">
+                <span class="integration-chip">Imbalance prices</span>
+                <span class="integration-chip">EUR/kWh</span>
+                <span class="integration-chip">15-min resolution</span>
+              </div>
+            </div>
+
+            <!-- Fluvius -->
+            <div class="card integration-card">
+              <div class="integration-header">
+                <div class="integration-logo integration-logo--fluvius">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                </div>
+                <div class="integration-meta">
+                  <div class="integration-name">Fluvius Open Data <span class="integration-dataset">1_03</span></div>
+                  <div class="integration-url">opendata.fluvius.be</div>
+                </div>
+                <span class="integration-badge integration-badge--connected">Live</span>
+              </div>
+              <p class="settings-desc">Street-level annual electricity consumption in kWh/year, aggregated per street segment across Belgium. Displayed in the Overview sidebar when zoomed in on the map.</p>
+              <div class="integration-chips">
+                <span class="integration-chip">Street consumption</span>
+                <span class="integration-chip">kWh/year</span>
+                <span class="integration-chip">Belgium</span>
+              </div>
+            </div>
+
+            <!-- Nominatim -->
+            <div class="card integration-card">
+              <div class="integration-header">
+                <div class="integration-logo integration-logo--osm">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </div>
+                <div class="integration-meta">
+                  <div class="integration-name">OpenStreetMap / Nominatim</div>
+                  <div class="integration-url">nominatim.openstreetmap.org</div>
+                </div>
+                <span class="integration-badge integration-badge--connected">Live</span>
+              </div>
+              <p class="settings-desc">Address geocoding for the "My Energy Path" search feature and the location setting. Queries are restricted to Belgium.</p>
+              <div class="integration-chips">
+                <span class="integration-chip">Geocoding</span>
+                <span class="integration-chip">Belgium</span>
+                <span class="integration-chip">Address search</span>
+              </div>
+            </div>
+
+            <!-- OSM Grid -->
+            <div class="card integration-card">
+              <div class="integration-header">
+                <div class="integration-logo integration-logo--osm">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                </div>
+                <div class="integration-meta">
+                  <div class="integration-name">OpenStreetMap Power Infrastructure</div>
+                  <div class="integration-url">openstreetmap.org · /belgium_grid.geojson</div>
+                </div>
+                <span class="integration-badge integration-badge--local">Local</span>
+              </div>
+              <p class="settings-desc">Full Belgian electricity grid geometry including transmission and distribution lines. Extracted from OpenStreetMap, stored as GeoJSON, and served from our own Nginx instance. Visualised as the interactive grid layer on the Overview map.</p>
+              <div class="integration-chips">
+                <span class="integration-chip">Grid geometry</span>
+                <span class="integration-chip">GeoJSON</span>
+                <span class="integration-chip">Transmission lines</span>
+                <span class="integration-chip">Distribution lines</span>
+                <span class="integration-chip">Self-hosted</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Data Generation -->
+        <div class="settings-panel hidden" id="settings-panel-datagen">
+          <div class="page-inner datagen-inner">
+            <header class="page-head">
+              <h1 class="page-title">Data Generation</h1>
+              <p class="page-sub">Generate synthetic household power consumption data for NILM analysis.</p>
+            </header>
+
+            <button id="btn-generate" class="btn-generate">Generate 3 months of data</button>
+
+            <div id="gen-results" class="gen-results hidden">
+              <div class="stat-grid">
+                <div class="card stat-card big">
+                  <div class="stat-label">Days generated</div>
+                  <div class="stat-value" id="res-days">—</div>
+                </div>
+                <div class="card stat-card big">
+                  <div class="stat-label">Data points</div>
+                  <div class="stat-value" id="res-points">—</div>
+                </div>
+                <div class="card stat-card big">
+                  <div class="stat-label">Total energy</div>
+                  <div class="stat-value" id="res-kwh">—</div>
+                  <div class="stat-unit">kWh</div>
+                </div>
+                <div class="card stat-card big">
+                  <div class="stat-label">Avg per day</div>
+                  <div class="stat-value" id="res-avg">—</div>
+                  <div class="stat-unit">kWh/day</div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title-row">
+                  <div class="card-title">Week preview</div>
+                  <div class="day-nav">
+                    <button class="nav-btn" id="btn-prev-week">← Prev</button>
+                    <span id="preview-week">—</span>
+                    <button class="nav-btn" id="btn-next-week">Next →</button>
+                  </div>
+                </div>
+                <div class="week-charts grid grid-cols-4" id="week-charts"></div>
+              </div>
+
+              <div class="export-row">
+                <button class="btn-export" id="btn-export-json">Export JSON</button>
+                <button class="btn-export" id="btn-export-csv">Export CSV</button>
+                <button class="btn-save-db" id="btn-save-db">Save to database</button>
+                <span class="db-status" id="db-status"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </section>

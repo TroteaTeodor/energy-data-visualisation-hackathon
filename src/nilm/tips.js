@@ -232,5 +232,5 @@ export async function generateTips(dates, fetchDayWatts) {
 
   // Sort descending by saving, take top 3
   candidates.sort((a, b) => b.monthlySaving - a.monthlySaving);
-  return candidates.slice(0, 3).map(({ monthlySaving, ...tip }) => tip);
+  return candidates.slice(0, 3);
 }

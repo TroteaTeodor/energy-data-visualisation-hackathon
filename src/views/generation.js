@@ -37,22 +37,31 @@ function renderApplianceList() {
   applianceCharts.forEach(c => c.destroy());
   applianceCharts = [];
 
+  const APPLIANCE_ICON = {
+    washing_machine: '👕', dryer: '💨', dishwasher: '🍽️',
+    oven: '🔥', hob: '🍳', ev_charger: '⚡',
+    heat_pump: '🌡️', microwave: '📡',
+  };
+
   const el = document.getElementById('appliance-list');
   el.innerHTML = appliances.map((a, i) => `
-    <div class="appliance-row">
-      <div class="ap-row-top">
-        <label class="ap-toggle">
-          <input type="checkbox" class="ap-enabled" data-idx="${i}" ${a.enabled ? 'checked' : ''}>
-          <span class="ap-name">${a.name}</span>
-        </label>
-        <div class="ap-characteristic">
-          <canvas id="ap-chart-${i}"></canvas>
-        </div>
-        <div class="ap-watts-wrap">
-          <input type="number" class="ap-watts" data-idx="${i}" value="${a.watts}" min="100" max="15000" step="100">
-          <span class="ap-unit">W</span>
+    <div class="appliance-row ${a.enabled ? '' : 'ap-disabled'}">
+      <div class="ap-icon">${APPLIANCE_ICON[a.id] ?? '⚙️'}</div>
+      <div class="ap-info">
+        <div class="ap-name">${a.name}</div>
+        <div class="ap-sub">
+          <div class="ap-characteristic"><canvas id="ap-chart-${i}"></canvas></div>
         </div>
       </div>
+      <div class="ap-watts-wrap">
+        <input type="number" class="ap-watts" data-idx="${i}" value="${a.watts}" min="100" max="15000" step="100">
+        <span class="ap-unit">W</span>
+      </div>
+      <label class="ap-switch" title="${a.enabled ? 'Enabled' : 'Disabled'}">
+        <input type="checkbox" class="ap-enabled" data-idx="${i}" ${a.enabled ? 'checked' : ''}>
+        <span class="ap-switch-track"><span class="ap-switch-thumb"></span></span>
+      </label>
+      <button class="ap-menu-btn" disabled title="Coming soon">···</button>
     </div>
   `).join('');
 
@@ -98,7 +107,11 @@ function renderApplianceList() {
   });
 
   el.querySelectorAll('.ap-enabled').forEach(cb =>
-    cb.addEventListener('change', e => { appliances[+e.target.dataset.idx].enabled = e.target.checked; })
+    cb.addEventListener('change', e => {
+      const idx = +e.target.dataset.idx;
+      appliances[idx].enabled = e.target.checked;
+      e.target.closest('.appliance-row').classList.toggle('ap-disabled', !e.target.checked);
+    })
   );
   el.querySelectorAll('.ap-watts').forEach(inp =>
     inp.addEventListener('change', e => {
