@@ -131,6 +131,12 @@ async function loadFullBelgiumGrid() {
     drawBelgiumGridGeoJSON(features);
     fullBelgiumGridLoaded = true;
     updateGridStatus(`${features.length.toLocaleString()} power lines · click for details`);
+
+    // Auto-load a Brussels fallback location so the path is visible immediately.
+    // The user can override it with "Use my location" or the address search.
+    if (!userLocation) {
+      setUserLocation(L.latLng(50.848135938132685, 4.353801699361477), 'Brussels (default)');
+    }
   } catch (error) {
     console.warn('Belgium grid load failed, showing fallback:', error);
     promoteFallbackGridAsPrimary();
@@ -537,6 +543,14 @@ async function setUserLocation(latlng, label = null) {
   setLocationStatus('');
   showPathInfo(snap, allSources, latlng);
   document.getElementById('toggle-row')?.classList.remove('hidden');
+
+  // Default to "My Home" view: hide the full national grid, show only the path.
+  if (!showOnlyMyPath) {
+    showOnlyMyPath = true;
+    gridLayer.eachLayer(l => { if (l.options?.powerTags) l.setStyle({ opacity: 0, weight: 8 }); });
+    document.getElementById('toggle-path-btn')?.classList.add('active');
+    document.getElementById('toggle-grid-btn')?.classList.remove('active');
+  }
 }
 
 function snapToNearestGridLine(latlng) {
