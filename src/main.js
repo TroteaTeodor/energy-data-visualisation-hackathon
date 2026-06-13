@@ -2,7 +2,6 @@ import { getCurrentMix, computeMixPercentages, checkMyths } from './api/elia.js'
 import { initClock, updateGenMix, updateStats, updateBestHours, showMyth, storeDashboardState } from './views/dashboard.js';
 import { initMap, updateHeatmap, updateFlows, updateMapAttribution, invalidateMap, setEliaRefresher, setLocationByAddress } from './views/map.js';
 import { updateConsumption, initConsumption } from './views/consumption.js';
-import { initGeneration } from './views/generation.js';
 import { loadPriceData } from './views/price.js';
 import { initSettings, loadSettings } from './views/settings.js';
 
@@ -88,7 +87,6 @@ async function init() {
 
   initTabs();
   initClock();
-  initGeneration();
   await initMap();
 
   // Apply saved home location (overrides the Brussels default once the grid loads)

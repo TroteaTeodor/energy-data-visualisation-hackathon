@@ -13,7 +13,6 @@
     <div class="logo">⚡ Brussels Energy Reality</div>
     <nav class="tabs" id="tabs">
       <button class="tab active" data-view="overview">Overview</button>
-      <button class="tab" data-view="generation">Data Generation</button>
       <button class="tab" data-view="consumption">Power Consumption</button>
       <button class="tab" data-view="prices">⚡ Energy Prices</button>
       <button class="tab" data-view="settings">Settings</button>
@@ -130,72 +129,6 @@
       </div>
     </main>
   </div>
-  </section>
-
-  <!-- ─── Data Generation ─── -->
-  <section class="view page-view" id="view-generation">
-    <div class="page-inner">
-      <header class="page-head">
-        <h1 class="page-title">Data Generation</h1>
-        <p class="page-sub">Generate 3 months of synthetic household power consumption data for NILM analysis.</p>
-      </header>
-
-      <!-- Appliance configurator -->
-      <div class="card">
-        <div class="card-title">Appliances (grootverbruikers)</div>
-        <div id="appliance-list" class="appliance-list"></div>
-      </div>
-
-      <!-- Trigger -->
-      <button id="btn-generate" class="btn-generate">Generate 3 months of data</button>
-
-      <!-- Results — hidden until generated -->
-      <div id="gen-results" class="gen-results hidden">
-
-        <div class="stat-grid">
-          <div class="card stat-card big">
-            <div class="stat-label">Days generated</div>
-            <div class="stat-value" id="res-days">—</div>
-          </div>
-          <div class="card stat-card big">
-            <div class="stat-label">Data points</div>
-            <div class="stat-value" id="res-points">—</div>
-          </div>
-          <div class="card stat-card big">
-            <div class="stat-label">Total energy</div>
-            <div class="stat-value" id="res-kwh">—</div>
-            <div class="stat-unit">kWh</div>
-          </div>
-          <div class="card stat-card big">
-            <div class="stat-label">Avg per day</div>
-            <div class="stat-value" id="res-avg">—</div>
-            <div class="stat-unit">kWh/day</div>
-          </div>
-        </div>
-
-        <!-- Week preview -->
-        <div class="card">
-          <div class="card-title-row">
-            <div class="card-title">Week preview</div>
-            <div class="day-nav">
-              <button class="nav-btn" id="btn-prev-week">← Prev</button>
-              <span id="preview-week">—</span>
-              <button class="nav-btn" id="btn-next-week">Next →</button>
-            </div>
-          </div>
-          <div class="week-charts grid grid-cols-4" id="week-charts"></div>
-        </div>
-
-        <!-- Export / Save -->
-        <div class="export-row">
-          <button class="btn-export" id="btn-export-json">Export JSON</button>
-          <button class="btn-export" id="btn-export-csv">Export CSV</button>
-          <button class="btn-save-db" id="btn-save-db">Save to database</button>
-          <span class="db-status" id="db-status"></span>
-        </div>
-
-      </div>
-    </div>
   </section>
 
   <!-- ─── Power Consumption ─── -->
@@ -356,45 +289,166 @@
   </section>
   <!-- ─── Settings ─── -->
   <section class="view page-view" id="view-settings">
-    <div class="page-inner settings-inner">
-      <header class="page-head">
-        <h1 class="page-title">Settings</h1>
-        <p class="page-sub">Personalise your dashboard experience.</p>
-      </header>
+    <div class="settings-layout">
 
-      <!-- Location -->
-      <div class="card settings-card">
-        <div class="card-title">Home Location</div>
-        <p class="settings-desc">Set your home address to automatically position your energy path on the map.</p>
-        <div class="settings-field">
-          <label class="settings-label" for="settings-address">Address</label>
-          <div class="settings-input-row">
-            <input type="text" id="settings-address" class="settings-input" placeholder="Rue de la Loi 16, Bruxelles" autocomplete="off" />
-            <button id="settings-address-save" class="settings-btn">Save</button>
+      <!-- Sub-tab sidebar -->
+      <nav class="settings-sidenav">
+        <div class="settings-sidenav-title">Settings</div>
+        <button class="settings-sidetab active" data-panel="general">General</button>
+        <button class="settings-sidetab" data-panel="appliances">Appliances</button>
+        <button class="settings-sidetab" data-panel="integrations">Integrations</button>
+        <button class="settings-sidetab" data-panel="datagen">Data Generation</button>
+      </nav>
+
+      <!-- Panels -->
+      <div class="settings-panels">
+
+        <!-- General -->
+        <div class="settings-panel active" id="settings-panel-general">
+          <div class="page-inner settings-inner">
+            <header class="page-head">
+              <h1 class="page-title">General</h1>
+              <p class="page-sub">Personalise your dashboard experience.</p>
+            </header>
+
+            <div class="card settings-card">
+              <div class="card-title">Home Location</div>
+              <p class="settings-desc">Set your home address to automatically position your energy path on the map.</p>
+              <div class="settings-field">
+                <label class="settings-label" for="settings-address">Address</label>
+                <div class="settings-input-row">
+                  <input type="text" id="settings-address" class="settings-input" placeholder="Rue de la Loi 16, Bruxelles" autocomplete="off" />
+                  <button id="settings-address-save" class="settings-btn">Save</button>
+                </div>
+                <div id="settings-address-status" class="settings-status"></div>
+              </div>
+            </div>
+
+            <div class="card settings-card">
+              <div class="card-title">Savings Notifications</div>
+              <p class="settings-desc">Receive a browser notification when we detect a potential monthly saving above your threshold.</p>
+              <div class="settings-field">
+                <label class="settings-label" for="settings-threshold">Minimum saving to notify (€/month)</label>
+                <div class="settings-input-row">
+                  <input type="number" id="settings-threshold" class="settings-input settings-input--narrow" min="0" step="0.5" placeholder="2.00" />
+                  <button id="settings-threshold-save" class="settings-btn">Save</button>
+                </div>
+              </div>
+              <div class="settings-divider"></div>
+              <div class="settings-field">
+                <label class="settings-label">Browser permission</label>
+                <div id="settings-notif-status" class="settings-status"></div>
+                <button id="settings-notif-enable" class="settings-btn settings-btn--outline">Enable notifications</button>
+              </div>
+            </div>
           </div>
-          <div id="settings-address-status" class="settings-status"></div>
         </div>
-      </div>
 
-      <!-- Notifications -->
-      <div class="card settings-card">
-        <div class="card-title">Savings Notifications</div>
-        <p class="settings-desc">Receive a browser notification when we detect a potential monthly saving above your threshold.</p>
-        <div class="settings-field">
-          <label class="settings-label" for="settings-threshold">Minimum saving to notify (€/month)</label>
-          <div class="settings-input-row">
-            <input type="number" id="settings-threshold" class="settings-input settings-input--narrow" min="0" step="0.5" placeholder="2.00" />
-            <button id="settings-threshold-save" class="settings-btn">Save</button>
+        <!-- Appliances -->
+        <div class="settings-panel hidden" id="settings-panel-appliances">
+          <div class="page-inner settings-inner">
+            <header class="page-head">
+              <h1 class="page-title">Appliances</h1>
+              <p class="page-sub">Configure which appliances are present in your household. Used for data generation and NILM disaggregation.</p>
+            </header>
+            <div class="card">
+              <div class="card-title-row">
+                <div class="card-title">Appliances</div>
+                <button class="ap-add-btn" disabled title="Coming soon">+ Add appliance</button>
+              </div>
+              <div id="appliance-list" class="appliance-list"></div>
+            </div>
           </div>
         </div>
-        <div class="settings-divider"></div>
-        <div class="settings-field">
-          <label class="settings-label">Browser permission</label>
-          <div id="settings-notif-status" class="settings-status"></div>
-          <button id="settings-notif-enable" class="settings-btn settings-btn--outline">Enable notifications</button>
-        </div>
-      </div>
 
+        <!-- Integrations -->
+        <div class="settings-panel hidden" id="settings-panel-integrations">
+          <div class="page-inner settings-inner">
+            <header class="page-head">
+              <h1 class="page-title">Integrations</h1>
+              <p class="page-sub">Connected data sources powering your dashboard.</p>
+            </header>
+
+            <div class="card integration-card">
+              <div class="integration-header">
+                <div class="integration-logo">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M13 2 L4 14 h7 l-1 8 l9-12 h-7 Z"/>
+                  </svg>
+                </div>
+                <div class="integration-meta">
+                  <div class="integration-name">Elia Open Data</div>
+                  <div class="integration-url">opendata.elia.be</div>
+                </div>
+                <span class="integration-badge integration-badge--connected">Connected</span>
+              </div>
+              <p class="settings-desc">Belgian transmission system operator. Provides real-time generation mix, total load, imbalance prices, and grid flow data updated every 15 minutes.</p>
+              <div class="integration-chips">
+                <span class="integration-chip">Generation mix</span>
+                <span class="integration-chip">Imbalance prices</span>
+                <span class="integration-chip">Total load</span>
+                <span class="integration-chip">Grid flows</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Data Generation -->
+        <div class="settings-panel hidden" id="settings-panel-datagen">
+          <div class="page-inner datagen-inner">
+            <header class="page-head">
+              <h1 class="page-title">Data Generation</h1>
+              <p class="page-sub">Generate synthetic household power consumption data for NILM analysis.</p>
+            </header>
+
+            <button id="btn-generate" class="btn-generate">Generate 3 months of data</button>
+
+            <div id="gen-results" class="gen-results hidden">
+              <div class="stat-grid">
+                <div class="card stat-card big">
+                  <div class="stat-label">Days generated</div>
+                  <div class="stat-value" id="res-days">—</div>
+                </div>
+                <div class="card stat-card big">
+                  <div class="stat-label">Data points</div>
+                  <div class="stat-value" id="res-points">—</div>
+                </div>
+                <div class="card stat-card big">
+                  <div class="stat-label">Total energy</div>
+                  <div class="stat-value" id="res-kwh">—</div>
+                  <div class="stat-unit">kWh</div>
+                </div>
+                <div class="card stat-card big">
+                  <div class="stat-label">Avg per day</div>
+                  <div class="stat-value" id="res-avg">—</div>
+                  <div class="stat-unit">kWh/day</div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-title-row">
+                  <div class="card-title">Week preview</div>
+                  <div class="day-nav">
+                    <button class="nav-btn" id="btn-prev-week">← Prev</button>
+                    <span id="preview-week">—</span>
+                    <button class="nav-btn" id="btn-next-week">Next →</button>
+                  </div>
+                </div>
+                <div class="week-charts grid grid-cols-4" id="week-charts"></div>
+              </div>
+
+              <div class="export-row">
+                <button class="btn-export" id="btn-export-json">Export JSON</button>
+                <button class="btn-export" id="btn-export-csv">Export CSV</button>
+                <button class="btn-save-db" id="btn-save-db">Save to database</button>
+                <span class="db-status" id="db-status"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   </section>
   </div>

@@ -1,6 +1,9 @@
 import { setLocationByAddress } from './map.js';
+import { initGeneration } from './generation.js';
 
 const STORE_KEY = 'bxl_energy_settings';
+let generationInited = false;
+let settingsInited = false;
 
 export function loadSettings() {
   try {
@@ -29,24 +32,53 @@ export function maybeNotifyTips(tips) {
 }
 
 export function initSettings() {
+  initSubTabs();
+  if (!settingsInited) {
+    wireGeneralPanel();
+    settingsInited = true;
+  }
+}
+
+function initSubTabs() {
+  const tabs   = document.querySelectorAll('.settings-sidetab');
+  const panels = document.querySelectorAll('.settings-panel');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.panel;
+
+      tabs.forEach(t => t.classList.toggle('active', t === tab));
+      panels.forEach(p => {
+        const isTarget = p.id === `settings-panel-${target}`;
+        p.classList.toggle('active', isTarget);
+        p.classList.toggle('hidden', !isTarget);
+      });
+
+      if ((target === 'datagen' || target === 'appliances') && !generationInited) {
+        initGeneration();
+        generationInited = true;
+      }
+    });
+  });
+}
+
+function wireGeneralPanel() {
   const addressInput  = document.getElementById('settings-address');
   const addressBtn    = document.getElementById('settings-address-save');
   const addressStatus = document.getElementById('settings-address-status');
-  const thresholdInput  = document.getElementById('settings-threshold');
-  const thresholdBtn    = document.getElementById('settings-threshold-save');
+  const thresholdInput = document.getElementById('settings-threshold');
+  const thresholdBtn  = document.getElementById('settings-threshold-save');
   const notifBtn      = document.getElementById('settings-notif-enable');
   const notifStatus   = document.getElementById('settings-notif-status');
 
   if (!addressInput) return;
 
-  // Load saved values into inputs
   const saved = loadSettings();
   if (saved.locationAddress) addressInput.value = saved.locationAddress;
   if (saved.notifThreshold != null) thresholdInput.value = saved.notifThreshold;
 
   updateNotifStatus(notifStatus, notifBtn);
 
-  // Save address
   addressBtn.addEventListener('click', async () => {
     const query = addressInput.value.trim();
     if (!query) return;
@@ -71,7 +103,6 @@ export function initSettings() {
     if (e.key === 'Enter') addressBtn.click();
   });
 
-  // Save threshold
   thresholdBtn.addEventListener('click', () => {
     const val = parseFloat(thresholdInput.value);
     if (isNaN(val) || val < 0) return;
@@ -80,7 +111,6 @@ export function initSettings() {
     setTimeout(() => { thresholdBtn.textContent = 'Save'; }, 1500);
   });
 
-  // Request notification permission
   notifBtn.addEventListener('click', async () => {
     if (!('Notification' in window)) {
       notifStatus.textContent = 'Notifications not supported in this browser.';
@@ -98,14 +128,13 @@ function updateNotifStatus(statusEl, btn) {
     btn.disabled = true;
     return;
   }
-  const perm = Notification.permission;
   const { notifEnabled } = loadSettings();
+  const perm = Notification.permission;
 
   if (perm === 'granted' && notifEnabled) {
     statusEl.dataset.ok = 'true';
     statusEl.textContent = '✓ Notifications enabled';
     btn.textContent = 'Disable notifications';
-    btn.dataset.action = 'disable';
   } else if (perm === 'denied') {
     statusEl.dataset.ok = 'false';
     statusEl.textContent = 'Blocked by browser — allow in site settings and reload.';
