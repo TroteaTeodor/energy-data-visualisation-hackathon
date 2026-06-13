@@ -4,30 +4,58 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Brussels Energy Reality</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body>
   <header>
-    <div class="logo">⚡ Brussels Energy Reality</div>
+    <div class="logo">
+      <span class="logo-icon">⚡</span>
+      <span class="logo-text">Brussels Energy Reality</span>
+    </div>
     <nav id="tabs">
-      <button class="tab active" data-view="clock">Energy Clock</button>
-      <button class="tab" data-view="map">Where It Comes From</button>
-      <button class="tab" data-view="heatmap">Brussels Heatmap</button>
+      <button class="tab active" data-view="clock">
+        <span class="tab-icon">🕐</span>
+        <span class="tab-label">Energy Clock</span>
+      </button>
+      <button class="tab" data-view="map">
+        <span class="tab-icon">🌍</span>
+        <span class="tab-label">Where It Comes From</span>
+      </button>
+      <button class="tab" data-view="heatmap">
+        <span class="tab-icon">🏙️</span>
+        <span class="tab-label">Brussels Heatmap</span>
+      </button>
     </nav>
-    <div id="live-indicator" class="live-dot">● LIVE</div>
+    <div class="live-indicator">
+      <span class="live-dot"></span>
+      <span class="live-text" id="live-text">LIVE</span>
+    </div>
   </header>
 
   <main>
+    <div id="loading-bar" class="loading-bar"></div>
     <section id="view-clock" class="view active"></section>
     <section id="view-map" class="view"></section>
     <section id="view-heatmap" class="view"></section>
   </main>
 
-  <div id="myth-card" class="myth-card hidden"></div>
+  <div id="myth-card" class="myth-card hidden">
+    <button class="myth-close" id="myth-close">&times;</button>
+    <div class="myth-icon" id="myth-icon">🔥</div>
+    <div class="myth-title" id="myth-title"></div>
+    <div class="myth-text" id="myth-text"></div>
+  </div>
 
   <footer>
-    <p>Data: <a href="https://opendata.elia.be" target="_blank">Elia Open Data</a> · Built for Hackathon 13 June 2026</p>
+    <div class="footer-inner">
+      <span>Data: <a href="https://opendata.elia.be" target="_blank">Elia Open Data</a></span>
+      <span class="footer-sep">·</span>
+      <span>Built for Hackathon · 13 June 2026</span>
+      <span class="footer-sep">·</span>
+      <span class="footer-status" id="footer-status">Connecting to grid...</span>
+    </div>
   </footer>
 
   <script type="module" src="/src/main.js"></script>
