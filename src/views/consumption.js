@@ -606,20 +606,37 @@ function renderNilmChart(nilm, clipMinute, isPrediction) {
   if (!canvas) return;
 
   const datasets = APPLIANCE_ORDER.map(id => {
-    const meta = APPLIANCE_META[id];
-    const raw  = nilm[id] ?? [];
-    const data = raw.map((w, i) => (isPrediction || i <= clipMinute) ? w : null);
+    const meta  = APPLIANCE_META[id];
+    const raw   = nilm[id] ?? [];
+    const data  = raw.map((w, i) => (isPrediction || i <= clipMinute) ? w : null);
+    const color = meta.color;
     return {
       label: meta.label,
       data,
-      backgroundColor: hexToRgba(meta.color, isPrediction ? 0.5 : 0.82),
-      borderColor: meta.color,
+      backgroundColor: hexToRgba(color, isPrediction ? 0.5 : 0.82),
+      borderColor: color,
       borderWidth: isPrediction ? 0 : 0.5,
       borderDash: isPrediction ? [4, 4] : [],
       fill: true,
       tension: 0.15,
       pointRadius: 0,
       spanGaps: false,
+      // Dim the predicted portion (after currentMinute) on today's live view.
+      // Reads currentMinute at draw-time so no need to update on re-renders.
+      segment: {
+        backgroundColor: ctx =>
+          currentMinute < MINUTES_PER_DAY - 1 && ctx.p0DataIndex >= currentMinute
+            ? hexToRgba(color, 0.18)
+            : undefined,
+        borderColor: ctx =>
+          currentMinute < MINUTES_PER_DAY - 1 && ctx.p0DataIndex >= currentMinute
+            ? hexToRgba(color, 0.3)
+            : undefined,
+        borderDash: ctx =>
+          currentMinute < MINUTES_PER_DAY - 1 && ctx.p0DataIndex >= currentMinute
+            ? [4, 4]
+            : undefined,
+      },
     };
   });
 
