@@ -21,5 +21,8 @@ export const HEAT_PUMP_SEASONAL = [1.6, 1.5, 1.2, 0.7, 0.3, 0.1, 0.1, 0.2, 0.5, 
  */
 export function baselineWatts(minute, month) {
   const hour = Math.floor(minute / 60);
-  return HOUR_PROFILE[hour] * SEASONAL[month];
+  const frac = (minute % 60) / 60;
+  const next = HOUR_PROFILE[(hour + 1) % 24];
+  const interpolated = HOUR_PROFILE[hour] + (next - HOUR_PROFILE[hour]) * frac;
+  return interpolated * SEASONAL[month];
 }
