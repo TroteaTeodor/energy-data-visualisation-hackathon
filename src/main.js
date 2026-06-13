@@ -1,9 +1,10 @@
 import { getCurrentMix, computeMixPercentages, checkMyths } from './api/elia.js';
 import { initClock, updateGenMix, updateStats, updateBestHours, showMyth, storeDashboardState } from './views/dashboard.js';
-import { initMap, updateHeatmap, updateFlows, updateMapAttribution, invalidateMap, setEliaRefresher } from './views/map.js';
+import { initMap, updateHeatmap, updateFlows, updateMapAttribution, invalidateMap, setEliaRefresher, setLocationByAddress } from './views/map.js';
 import { updateConsumption, initConsumption } from './views/consumption.js';
 import { initGeneration } from './views/generation.js';
 import { loadPriceData } from './views/price.js';
+import { initSettings, loadSettings } from './views/settings.js';
 
 // ─── State ───
 let state = { mix: {}, totalMw: 0, mixPct: [], myths: [] };
@@ -76,6 +77,7 @@ function initTabs() {
       if (name === 'overview') invalidateMap();
       if (name === 'consumption') initConsumption();
       if (name === 'prices') loadPriceData();
+      if (name === 'settings') initSettings();
     });
   });
 }
@@ -88,6 +90,12 @@ async function init() {
   initClock();
   initGeneration();
   await initMap();
+
+  // Apply saved home location (overrides the Brussels default once the grid loads)
+  const savedLocation = loadSettings().locationAddress;
+  if (savedLocation) {
+    setLocationByAddress(savedLocation).catch(() => {});
+  }
 
   // Give map.js a way to trigger a fresh Elia fetch on popup open
   setEliaRefresher(updateAll);

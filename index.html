@@ -16,6 +16,7 @@
       <button class="tab" data-view="generation">Data Generation</button>
       <button class="tab" data-view="consumption">Power Consumption</button>
       <button class="tab" data-view="prices">⚡ Energy Prices</button>
+      <button class="tab" data-view="settings">Settings</button>
     </nav>
     <div class="header-right">
       <span class="live-badge">
@@ -351,6 +352,49 @@
         Source: Elia Open Data · ods134 imbalance prices (EUR/MWh → €/kWh) ·
         Solid bars = today's actual · Dimmed bars = previous day reference
       </div>
+    </div>
+  </section>
+  <!-- ─── Settings ─── -->
+  <section class="view page-view" id="view-settings">
+    <div class="page-inner settings-inner">
+      <header class="page-head">
+        <h1 class="page-title">Settings</h1>
+        <p class="page-sub">Personalise your dashboard experience.</p>
+      </header>
+
+      <!-- Location -->
+      <div class="card settings-card">
+        <div class="card-title">Home Location</div>
+        <p class="settings-desc">Set your home address to automatically position your energy path on the map.</p>
+        <div class="settings-field">
+          <label class="settings-label" for="settings-address">Address</label>
+          <div class="settings-input-row">
+            <input type="text" id="settings-address" class="settings-input" placeholder="Rue de la Loi 16, Bruxelles" autocomplete="off" />
+            <button id="settings-address-save" class="settings-btn">Save</button>
+          </div>
+          <div id="settings-address-status" class="settings-status"></div>
+        </div>
+      </div>
+
+      <!-- Notifications -->
+      <div class="card settings-card">
+        <div class="card-title">Savings Notifications</div>
+        <p class="settings-desc">Receive a browser notification when we detect a potential monthly saving above your threshold.</p>
+        <div class="settings-field">
+          <label class="settings-label" for="settings-threshold">Minimum saving to notify (€/month)</label>
+          <div class="settings-input-row">
+            <input type="number" id="settings-threshold" class="settings-input settings-input--narrow" min="0" step="0.5" placeholder="2.00" />
+            <button id="settings-threshold-save" class="settings-btn">Save</button>
+          </div>
+        </div>
+        <div class="settings-divider"></div>
+        <div class="settings-field">
+          <label class="settings-label">Browser permission</label>
+          <div id="settings-notif-status" class="settings-status"></div>
+          <button id="settings-notif-enable" class="settings-btn settings-btn--outline">Enable notifications</button>
+        </div>
+      </div>
+
     </div>
   </section>
   </div>
