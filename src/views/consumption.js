@@ -11,6 +11,7 @@ let dates = [];
 let selectedIdx = -1;
 let chart = null;
 let nilmChart = null;
+let costChart = null;
 let nilmVisible = false;
 let currentNilm = null;
 let currentMinute = MINUTES_PER_DAY - 1;
@@ -74,14 +75,21 @@ async function loadAndRender() {
   document.getElementById('con-next').disabled = isLatest;
   document.getElementById('con-today-badge').style.display = isLatest ? '' : 'none';
 
-  let watts;
+  let watts, priceSeriesRaw;
   try {
     const res = await fetch(`/api/households/${HOUSEHOLD_ID}/consumption/${date}`);
     if (!res.ok) throw new Error();
-    watts = (await res.json()).watts_series;
+    const body = await res.json();
+    watts = body.watts_series;
+    priceSeriesRaw = body.price_series;
   } catch {
     return;
   }
+
+  // price_series: 24 hourly values (EUR/kWh), may be null for old records
+  const priceSeries = priceSeriesRaw && priceSeriesRaw.length === 24
+    ? priceSeriesRaw.map(Number)
+    : null;
 
   const now = new Date();
   currentMinute = isLatest
@@ -105,6 +113,25 @@ async function loadAndRender() {
   setText('con-now-time',     isLatest
     ? `now  ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
     : '');
+
+  // Cost calculation
+  if (priceSeries) {
+    // For each minute: kWh = watts / 1000 / 60; cost = kWh * price[hour]
+    const hourlyCost = Array(24).fill(0);
+    slice.forEach((w, m) => {
+      const h = Math.floor(m / 60);
+      hourlyCost[h] += (w / 1000 / 60) * priceSeries[h];
+    });
+    const totalCost = hourlyCost.reduce((s, c) => s + c, 0);
+    setText('con-cost', `€${totalCost.toFixed(2)}`);
+    document.getElementById('cost-card')?.classList.remove('hidden');
+    renderCostChart(hourlyCost, priceSeries, currentMinute);
+    document.getElementById('con-cost-section')?.classList.remove('hidden');
+  } else {
+    setText('con-cost', '—');
+    document.getElementById('cost-card')?.classList.add('hidden');
+    document.getElementById('con-cost-section')?.classList.add('hidden');
+  }
 
   renderMainChart(visible, isLatest ? currentMinute : null);
 
@@ -201,6 +228,76 @@ function renderMainChart(data, nowMinute) {
     },
   });
   chart._nowMinute = nowMinute;
+}
+
+// ─── Hourly cost chart ───
+
+const COST_LABELS = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, '0')}:00`);
+
+function renderCostChart(hourlyCost, priceSeries, clipMinute) {
+  const canvas = document.getElementById('con-cost-chart');
+  if (!canvas) return;
+
+  const clipHour = Math.floor(clipMinute / 60);
+
+  // Color each bar by price level
+  const prices = priceSeries;
+  const sortedP = [...prices].sort((a, b) => a - b);
+  const cheapT = sortedP[Math.floor(sortedP.length * 0.28)];
+  const expT   = sortedP[Math.floor(sortedP.length * 0.78)];
+  const barColors = prices.map((p, h) => {
+    if (h > clipHour) return 'rgba(51,65,85,0.3)';
+    if (p <= cheapT) return 'rgba(167,139,250,0.75)';
+    if (p >= expT)   return 'rgba(249,115,22,0.75)';
+    return 'rgba(45,212,191,0.65)';
+  });
+
+  const avgCost = hourlyCost.slice(0, clipHour + 1).reduce((s, c) => s + c, 0) / (clipHour + 1);
+  setText('con-cost-avg', `avg ${(avgCost * 100).toFixed(1)}¢/hr`);
+
+  if (costChart) {
+    costChart.data.datasets[0].data = hourlyCost;
+    costChart.data.datasets[0].backgroundColor = barColors;
+    costChart.update('none');
+    return;
+  }
+
+  costChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: COST_LABELS,
+      datasets: [{
+        data: hourlyCost,
+        backgroundColor: barColors,
+        borderRadius: 3,
+        borderSkipped: false,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: c => ` €${c.parsed.y.toFixed(4)} · price ${(priceSeries[c.dataIndex] * 100).toFixed(1)}¢/kWh`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          ticks: { color: '#64748b', font: { size: 9 }, maxRotation: 0, maxTicksLimit: 8 },
+          grid: { display: false },
+        },
+        y: {
+          min: 0,
+          ticks: { color: '#64748b', font: { size: 10 }, maxTicksLimit: 5, callback: v => `€${v.toFixed(3)}` },
+          grid: { color: 'rgba(51,65,85,0.25)' },
+        },
+      },
+    },
+  });
 }
 
 // ─── NILM stacked chart ───

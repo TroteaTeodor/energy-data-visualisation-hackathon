@@ -3,6 +3,7 @@ import { initClock, updateGenMix, updateStats, updateBestHours, showMyth, storeD
 import { initMap, updateHeatmap, updateFlows, updateMapAttribution, invalidateMap, setEliaRefresher } from './views/map.js';
 import { updateConsumption, initConsumption } from './views/consumption.js';
 import { initGeneration } from './views/generation.js';
+import { loadPriceData } from './views/price.js';
 
 // ─── State ───
 let state = { mix: {}, totalMw: 0, mixPct: [], myths: [] };
@@ -74,6 +75,7 @@ function initTabs() {
       views.forEach(v => v.classList.toggle('active', v.id === `view-${name}`));
       if (name === 'overview') invalidateMap();
       if (name === 'consumption') initConsumption();
+      if (name === 'prices') loadPriceData();
     });
   });
 }

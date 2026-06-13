@@ -133,6 +133,75 @@ export function categorizeMix(mixPct) {
   return { renewable, nuclear, fossil, other };
 }
 
+// ─── Hourly Electricity Prices (ods134 imbalance prices, EUR/MWh) ───
+export async function getHourlyImbalancePrices() {
+  try {
+    const data = await fetchDataset('ods134', { limit: 200, order_by: 'datetime desc' });
+    const results = data?.results || [];
+    if (!results.length) throw new Error('No price records');
+
+    // Group by local date + hour
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    const byDayHour = {};
+
+    for (const r of results) {
+      const dt = new Date(r.datetime);
+      const day = dt.toLocaleDateString('en-CA');
+      const h = dt.getHours();
+      const price = r.imbalanceprice ?? r.marginalincrementalprice;
+      if (price == null) continue;
+      const key = `${day}|${h}`;
+      if (!byDayHour[key]) byDayHour[key] = { prices: [], isToday: day === todayStr };
+      byDayHour[key].prices.push(price);
+    }
+
+    // Build 24-hour array: prefer today's actual data, fall back to previous day
+    return Array.from({ length: 24 }, (_, h) => {
+      const todayKey = `${todayStr}|${h}`;
+      const bucket = byDayHour[todayKey];
+      if (bucket?.prices.length) {
+        const avg = bucket.prices.reduce((a, b) => a + b, 0) / bucket.prices.length;
+        return { hour: h, price: avg / 1000, isActual: true };
+      }
+      // Fall back to most recent available hour across all days
+      const fallback = Object.entries(byDayHour)
+        .filter(([k]) => k.endsWith(`|${h}`) && k !== todayKey)
+        .sort(([a], [b]) => b.localeCompare(a))[0];
+      if (fallback) {
+        const avg = fallback[1].prices.reduce((a, b) => a + b, 0) / fallback[1].prices.length;
+        return { hour: h, price: avg / 1000, isActual: false };
+      }
+      return null;
+    }).filter(Boolean);
+  } catch (err) {
+    console.warn('Imbalance price fetch failed:', err.message);
+    return generateDemoPrices();
+  }
+}
+
+function generateDemoPrices() {
+  return generatePricesForDate(new Date()).map((price, h) => ({ hour: h, price, isActual: false }));
+}
+
+// Returns 24 deterministic hourly prices (EUR/kWh) for a given date.
+// Seed is based on the date so the same day always gives the same prices.
+export function generatePricesForDate(date) {
+  const d = typeof date === 'string' ? new Date(date + 'T00:00:00') : date;
+  const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+  // Deterministic seed from date — avoids Math.random
+  const seed = d.getFullYear() * 1000 + (d.getMonth() + 1) * 31 + d.getDate();
+  const pseudo = (h) => ((Math.sin(h * 2.7 + seed) + 1) / 2) * 0.018 - 0.009;
+
+  return Array.from({ length: 24 }, (_, h) => {
+    const solar   = Math.max(0, Math.sin(((h - 6) / 12) * Math.PI));
+    const morning = Math.exp(-0.5 * ((h - 8) ** 2) / 3.5);
+    const evening = Math.exp(-0.5 * ((h - 19) ** 2) / 2.5);
+    const base    = isWeekend ? 0.085 : 0.105;
+    const price   = base + morning * 0.10 + evening * 0.16 - solar * 0.05 + pseudo(h);
+    return Math.round(Math.max(0.03, Math.min(0.40, price)) * 10000) / 10000;
+  });
+}
+
 export function checkMyths(mix, totalMw) {
   const gasPct = mix['Natural Gas']?.pct || 0;
   const solarPct = mix['Solar']?.pct || 0;

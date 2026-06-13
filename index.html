@@ -15,6 +15,7 @@
       <button class="tab active" data-view="overview">Overview</button>
       <button class="tab" data-view="generation">Data Generation</button>
       <button class="tab" data-view="consumption">Power Consumption</button>
+      <button class="tab" data-view="prices">⚡ Energy Prices</button>
     </nav>
     <div class="header-right">
       <span class="live-badge">
@@ -240,6 +241,11 @@
             <div class="stat-value" id="con-avg">—</div>
             <div class="stat-unit">W</div>
           </div>
+          <div class="card stat-card big cost-card" id="cost-card">
+            <div class="stat-label">Est. Cost</div>
+            <div class="stat-value" id="con-cost" style="color:var(--yellow)">—</div>
+            <div class="stat-unit">€ / day</div>
+          </div>
         </div>
 
         <!-- 24h chart -->
@@ -254,6 +260,17 @@
           <div class="chart-wrap tall"><canvas id="con-chart"></canvas></div>
         </div>
 
+        <!-- Hourly cost breakdown (hidden when no price data) -->
+        <div id="con-cost-section" class="hidden">
+          <div class="card chart-card">
+            <div class="card-title-row">
+              <div class="card-title">Hourly energy cost (€/hr)</div>
+              <div id="con-cost-avg" class="con-now-time"></div>
+            </div>
+            <div class="chart-wrap"><canvas id="con-cost-chart"></canvas></div>
+          </div>
+        </div>
+
         <!-- NILM breakdown (hidden until toggled) -->
         <div id="con-nilm-section" class="hidden">
           <div class="card chart-card">
@@ -265,6 +282,53 @@
           </div>
         </div>
 
+      </div>
+    </div>
+  </section>
+  <!-- ─── Energy Prices ─── -->
+  <section class="view page-view" id="view-prices">
+    <div class="page-inner">
+      <header class="page-head">
+        <h1 class="page-title">Energy Prices</h1>
+        <p class="page-sub">Belgium · Hourly electricity prices (Elia imbalance market, EUR/kWh)</p>
+      </header>
+
+      <div class="price-stats-row">
+        <div class="price-stat card">
+          <div class="price-stat-label">Current hour</div>
+          <div class="price-stat-value" id="price-current" style="color:var(--accent)">—</div>
+          <div class="price-stat-unit">€/kWh</div>
+        </div>
+        <div class="price-stat card">
+          <div class="price-stat-label">Cheapest hour</div>
+          <div class="price-stat-value" id="price-min-time" style="color:#a78bfa">—</div>
+          <div class="price-stat-unit" id="price-min-val">—</div>
+        </div>
+        <div class="price-stat card">
+          <div class="price-stat-label">Most expensive</div>
+          <div class="price-stat-value" id="price-max-time" style="color:var(--orange)">—</div>
+          <div class="price-stat-unit" id="price-max-val">—</div>
+        </div>
+        <div class="price-stat card">
+          <div class="price-stat-label">24h average</div>
+          <div class="price-stat-value" id="price-avg">—</div>
+          <div class="price-stat-unit">€/kWh</div>
+        </div>
+      </div>
+
+      <div class="card price-chart-wrap">
+        <div class="card-title-row">
+          <div class="card-title">Hourly price profile</div>
+          <div id="price-date" class="price-date" style="font-size:0.65rem;color:var(--text3)"></div>
+        </div>
+        <canvas id="price-chart-canvas" class="price-chart-canvas"></canvas>
+      </div>
+
+      <div class="card price-tip-bar" id="price-tip"></div>
+
+      <div class="price-source-note">
+        Source: Elia Open Data · ods134 imbalance prices (EUR/MWh → €/kWh) ·
+        Solid bars = today's actual · Dimmed bars = previous day reference
       </div>
     </div>
   </section>

@@ -2,6 +2,7 @@ import Chart from 'chart.js/auto';
 import { APPLIANCES } from '../generator/appliances.js';
 import { generateDataset } from '../generator/generate.js';
 import { generateEvProfile } from '../generator/ev.js';
+import { generatePricesForDate } from '../api/elia.js';
 
 const MINUTES_PER_DAY = 1440;
 
@@ -366,7 +367,12 @@ async function saveToDatabase() {
   const byDate = new Map();
   for (const row of dataset) {
     if (!byDate.has(row.date)) {
-      byDate.set(row.date, { date: row.date, day_of_week: row.day_of_week, watts_series: [] });
+      byDate.set(row.date, {
+        date: row.date,
+        day_of_week: row.day_of_week,
+        watts_series: [],
+        price_series: generatePricesForDate(row.date),
+      });
     }
     byDate.get(row.date).watts_series.push(row.watts_total);
   }

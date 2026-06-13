@@ -37,9 +37,9 @@ router.post('/:id/consumption', async (req, res) => {
 
     for (const day of days) {
       await client.query(
-        `INSERT INTO consumption_days (household_id, date, day_of_week, watts_series)
-         VALUES ($1, $2, $3, $4)`,
-        [householdId, day.date, day.day_of_week, day.watts_series]
+        `INSERT INTO consumption_days (household_id, date, day_of_week, watts_series, price_series)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [householdId, day.date, day.day_of_week, day.watts_series, day.price_series ?? null]
       );
     }
 
@@ -70,7 +70,7 @@ router.get('/:id/consumption', async (req, res) => {
 router.get('/:id/consumption/:date', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT date::text, day_of_week, watts_series
+      `SELECT date::text, day_of_week, watts_series, price_series
        FROM consumption_days WHERE household_id = $1 AND date = $2`,
       [parseInt(req.params.id, 10), req.params.date]
     );
