@@ -431,6 +431,38 @@ const X_LABELS = Array.from({ length: MINUTES_PER_DAY }, (_, m) =>
   m % 360 === 0 ? `${String(m / 60).padStart(2, '0')}:00` : ''
 );
 
+function computeAvgLine(data) {
+  // One average dot per hour, placed at the midpoint minute of that hour.
+  // Chart.js spanGaps + tension draws a smooth curve through the 24 points.
+  const result = new Array(MINUTES_PER_DAY).fill(null);
+  for (let h = 0; h < 24; h++) {
+    const slice = data.slice(h * 60, (h + 1) * 60).filter(v => v !== null);
+    if (!slice.length) continue;
+    result[h * 60 + 30] = Math.round(slice.reduce((s, v) => s + v, 0) / slice.length);
+  }
+  return result;
+}
+
+const avgLinePlugin = {
+  id: 'avgLine',
+  afterDraw(c) {
+    const ds = c.data.datasets[2];
+    if (!ds?.data) return;
+    const lastIdx = ds.data.reduce((last, v, i) => v !== null ? i : last, -1);
+    if (lastIdx < 0) return;
+    const lastVal = ds.data[lastIdx];
+    const { ctx, chartArea, scales } = c;
+    const x = Math.min(scales.x.getPixelForValue(lastIdx) + 6, chartArea.right - 68);
+    const y = scales.y.getPixelForValue(lastVal);
+    ctx.save();
+    ctx.font = '600 10px system-ui';
+    ctx.fillStyle = 'rgba(251,191,36,0.85)';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${lastVal.toLocaleString()} W`, x, y - 5);
+    ctx.restore();
+  },
+};
+
 const nowLinePlugin = {
   id: 'nowLine',
   afterDraw(c) {
@@ -465,10 +497,10 @@ function renderMainChart(data, nowMinute, isPrediction, predOverlay = null) {
   const bgColor   = isPrediction ? 'rgba(167,139,250,0.07)' : 'rgba(45,212,191,0.07)';
   const dashArray = isPrediction ? [6, 4] : [];
   const predData  = predOverlay ?? new Array(MINUTES_PER_DAY).fill(null);
+  const avgData   = computeAvgLine(data);
 
   if (chart) {
     chart._nowMinute = nowMinute;
-    // Mutate existing dataset objects — don't replace references
     const ds0 = chart.data.datasets[0];
     ds0.data            = data;
     ds0.borderColor     = color;
@@ -476,6 +508,8 @@ function renderMainChart(data, nowMinute, isPrediction, predOverlay = null) {
     ds0.borderDash      = dashArray;
     const ds1 = chart.data.datasets[1];
     ds1.data            = predData;
+    const ds2 = chart.data.datasets[2];
+    ds2.data            = avgData;
     chart.options.scales.y.max = yMax;
     chart.update('none');
     return;
@@ -483,7 +517,7 @@ function renderMainChart(data, nowMinute, isPrediction, predOverlay = null) {
 
   chart = new Chart(canvas, {
     type: 'line',
-    plugins: [nowLinePlugin],
+    plugins: [nowLinePlugin, avgLinePlugin],
     data: {
       labels: X_LABELS,
       datasets: [
@@ -511,6 +545,20 @@ function renderMainChart(data, nowMinute, isPrediction, predOverlay = null) {
           pointRadius: 0,
           spanGaps: false,
         },
+        {
+          label: 'avg',
+          data: avgData,
+          borderColor: 'rgba(251,191,36,0.7)',
+          backgroundColor: 'transparent',
+          borderWidth: 1.5,
+          borderDash: [],
+          fill: false,
+          tension: 0.4,
+          pointRadius: 3,
+          pointBackgroundColor: 'rgba(251,191,36,0.85)',
+          pointBorderColor: 'transparent',
+          spanGaps: true,
+        },
       ],
     },
     options: {
@@ -527,6 +575,7 @@ function renderMainChart(data, nowMinute, isPrediction, predOverlay = null) {
             },
             label: c => {
               if (c.parsed.y == null) return null;
+              if (c.dataset.label === 'avg') return ` ${c.parsed.y.toLocaleString()} W avg`;
               const tag = c.dataset.label === 'predicted' ? ' (predicted)' : '';
               return ` ${c.parsed.y.toLocaleString()} W${tag}`;
             },
