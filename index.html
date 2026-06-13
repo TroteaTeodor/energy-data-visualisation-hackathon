@@ -10,52 +10,92 @@
 </head>
 <body>
   <header>
-    <div class="logo">
-      <span class="logo-icon">⚡</span>
-      <span class="logo-text">Brussels Energy Reality</span>
-    </div>
-    <nav id="tabs">
-      <button class="tab active" data-view="clock">
-        <span class="tab-icon">🕐</span>
-        <span class="tab-label">Energy Clock</span>
-      </button>
-      <button class="tab" data-view="map">
-        <span class="tab-icon">🌍</span>
-        <span class="tab-label">Where It Comes From</span>
-      </button>
-      <button class="tab" data-view="heatmap">
-        <span class="tab-icon">🏙️</span>
-        <span class="tab-label">Brussels Heatmap</span>
-      </button>
-    </nav>
-    <div class="live-indicator">
-      <span class="live-dot"></span>
-      <span class="live-text" id="live-text">LIVE</span>
+    <div class="logo">⚡ Brussels Energy Reality</div>
+    <div class="header-right">
+      <span class="live-badge">
+        <span class="live-dot"></span>
+        <span id="live-text">Live</span>
+      </span>
+      <span id="header-time" class="header-time">--:--</span>
     </div>
   </header>
 
-  <main>
-    <div id="loading-bar" class="loading-bar"></div>
-    <section id="view-clock" class="view active"></section>
-    <section id="view-map" class="view"></section>
-    <section id="view-heatmap" class="view"></section>
-  </main>
+  <div class="app-layout">
+    <aside id="sidebar">
+      <!-- Digital Clock -->
+      <div id="clock-card" class="card">
+        <div class="clock-display" id="clock-display">
+          <div class="clock-time" id="clock-time">--:--:--</div>
+          <div class="clock-date" id="clock-date">---</div>
+        </div>
+        <div class="clock-dominant" id="clock-dominant">
+          <span class="dominant-dot" id="dominant-dot"></span>
+          <span id="dominant-text">Loading grid...</span>
+        </div>
+      </div>
 
-  <div id="myth-card" class="myth-card hidden">
-    <button class="myth-close" id="myth-close">&times;</button>
-    <div class="myth-icon" id="myth-icon">🔥</div>
-    <div class="myth-title" id="myth-title"></div>
-    <div class="myth-text" id="myth-text"></div>
+      <!-- Carbon Intensity + Load -->
+      <div class="row-cards">
+        <div class="card stat-card">
+          <div class="stat-label">CO₂ intensity</div>
+          <div class="stat-value" id="stat-co2">—</div>
+          <div class="stat-unit">g/kWh</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">Total load</div>
+          <div class="stat-value" id="stat-load">—</div>
+          <div class="stat-unit">MW</div>
+        </div>
+      </div>
+
+      <!-- Generation Mix -->
+      <div class="card">
+        <div class="card-title">Generation Mix</div>
+        <div id="gen-mix" class="gen-mix">
+          <div class="gen-mix-empty">Waiting for data...</div>
+        </div>
+      </div>
+
+      <!-- Best Hours for Renewables -->
+      <div class="card">
+        <div class="card-title">Best hours for renewables</div>
+        <div id="best-hours" class="best-hours">
+          <canvas id="best-hours-canvas" width="280" height="48"></canvas>
+          <div class="best-hours-labels" id="best-hours-labels">
+            <span>00:00</span>
+            <span>06:00</span>
+            <span>12:00</span>
+            <span>18:00</span>
+            <span>23:00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Myth Card -->
+      <div id="myth-card" class="card myth-card-sidebar hidden">
+        <div class="myth-icon" id="myth-icon">💡</div>
+        <div class="myth-content">
+          <div class="myth-title" id="myth-title">Myth busted</div>
+          <div class="myth-text" id="myth-text"></div>
+        </div>
+      </div>
+    </aside>
+
+    <main id="map-container">
+      <div id="map"></div>
+      <div id="map-attribution">
+        <span id="map-view-label">Belgium · Grid Infrastructure</span>
+        <span id="map-timestamp">Updated: --</span>
+      </div>
+    </main>
   </div>
 
   <footer>
-    <div class="footer-inner">
-      <span>Data: <a href="https://opendata.elia.be" target="_blank">Elia Open Data</a></span>
-      <span class="footer-sep">·</span>
-      <span>Built for Hackathon · 13 June 2026</span>
-      <span class="footer-sep">·</span>
-      <span class="footer-status" id="footer-status">Connecting to grid...</span>
-    </div>
+    <span>Data: <a href="https://opendata.elia.be" target="_blank">Elia Open Data</a></span>
+    <span class="sep">·</span>
+    <span>Hackathon 13 June 2026</span>
+    <span class="sep">·</span>
+    <span id="footer-status">Connected</span>
   </footer>
 
   <script type="module" src="/src/main.js"></script>

@@ -1,71 +1,38 @@
 import { getCurrentMix, computeMixPercentages, checkMyths } from './api/elia.js';
-import { initClockView, updateClockView, storeClockState } from './views/clock.js';
-import { initMapView, updateMapView } from './views/map.js';
-import { initHeatmapView, updateHeatmapView } from './views/heatmap.js';
+import { initClock, updateGenMix, updateStats, updateBestHours, showMyth, storeDashboardState } from './views/dashboard.js';
+import { initMap, updateHeatmap, updateFlows, updateMapAttribution } from './views/map.js';
 
 // ─── State ───
 let state = { mix: {}, totalMw: 0, mixPct: [], myths: [] };
-let dataSource = 'connecting';
-
-// ─── Loading bar ───
-const loadingBar = document.getElementById('loading-bar');
-let loadTimer = null;
-function showLoading(on) {
-  loadingBar.classList.toggle('active', on);
-}
 
 // ─── Live indicator ───
 const liveDot = document.querySelector('.live-dot');
 const liveText = document.getElementById('live-text');
 const footerStatus = document.getElementById('footer-status');
 
-function setLiveStatus(status) {
+function setStatus(status, msg) {
   liveDot.className = 'live-dot';
   if (status === 'ok') {
-    liveDot.classList.add('ok');
-    liveText.textContent = 'LIVE';
-    footerStatus.textContent = 'Data updated just now';
-    footerStatus.className = 'footer-status ok';
+    liveDot.style.background = '#4ade80';
+    liveText.textContent = 'Live';
+    footerStatus.textContent = msg || 'Connected';
+    footerStatus.className = 'ok';
   } else if (status === 'loading') {
-    liveDot.classList.add('loading');
-    liveText.textContent = 'LOADING';
-    footerStatus.textContent = 'Fetching grid data...';
-    footerStatus.className = 'footer-status';
+    liveDot.style.background = '#fbbf24';
+    liveText.textContent = 'Loading';
+    footerStatus.textContent = msg || 'Fetching data...';
+    footerStatus.className = '';
   } else {
-    liveDot.classList.add('error');
-    liveText.textContent = 'ERROR';
-    footerStatus.textContent = 'Using simulated data (API unreachable)';
-    footerStatus.className = 'footer-status err';
+    liveDot.style.background = '#ef4444';
+    liveText.textContent = 'Error';
+    footerStatus.textContent = msg || 'Using demo data';
+    footerStatus.className = 'err';
   }
 }
 
-// ─── Tab navigation with map resize ───
-const tabViews = {};
-
-document.querySelectorAll('.tab').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    btn.classList.add('active');
-    const viewId = `view-${btn.dataset.view}`;
-    document.getElementById(viewId).classList.add('active');
-
-    // Trigger Leaflet map resize when switching to map/heatmap
-    setTimeout(() => {
-      if (btn.dataset.view === 'map' && window.__mapInstance) {
-        window.__mapInstance.invalidateSize();
-      }
-      if (btn.dataset.view === 'heatmap' && window.__heatmapInstance) {
-        window.__heatmapInstance.invalidateSize();
-      }
-    }, 100);
-  });
-});
-
-// ─── Poll data ───
+// ─── Main update loop ───
 async function updateAll() {
-  showLoading(true);
-  setLiveStatus('loading');
+  setStatus('loading');
   try {
     const raw = await getCurrentMix();
     const { entries, total } = computeMixPercentages(raw);
@@ -74,84 +41,37 @@ async function updateAll() {
     state.mixPct = entries;
     state.myths = checkMyths(raw, total);
 
-    storeClockState(entries, total);
-    updateClockView(state);
-    updateMapView(state);
-    updateHeatmapView(state);
-    showMythCards(state.myths);
+    storeDashboardState(entries, total);
+    updateGenMix(entries);
+    updateStats(total, entries);
+    updateBestHours();
+    showMyth(state.myths);
+    updateHeatmap(total);
+    updateFlows(raw);
 
-    dataSource = 'live';
-    setLiveStatus('ok');
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString();
+    updateMapAttribution(timeStr);
+
+    setStatus('ok', `Updated ${timeStr}`);
   } catch (err) {
     console.error('Update failed:', err);
-    setLiveStatus('error');
-  } finally {
-    showLoading(false);
+    setStatus('error');
   }
-}
-
-// ─── Myth card display ───
-let mythIndex = 0;
-let mythInterval = null;
-
-function showMythCards(myths) {
-  const card = document.getElementById('myth-card');
-  const icon = document.getElementById('myth-icon');
-  const title = document.getElementById('myth-title');
-  const text = document.getElementById('myth-text');
-  const closeBtn = document.getElementById('myth-close');
-
-  if (!myths.length) {
-    card.classList.add('hidden');
-    if (mythInterval) clearInterval(mythInterval);
-    return;
-  }
-
-  const m = myths[mythIndex % myths.length];
-  icon.textContent = m.icon;
-  title.textContent = m.title;
-  text.textContent = m.text;
-  card.classList.remove('hidden');
-  mythIndex = (mythIndex + 1) % myths.length;
-
-  // Close handler
-  closeBtn.onclick = () => card.classList.add('hidden');
-
-  // Cycle myths
-  if (mythInterval) clearInterval(mythInterval);
-  mythInterval = setInterval(() => {
-    const m2 = state.myths[mythIndex % state.myths.length];
-    if (m2) {
-      icon.textContent = m2.icon;
-      title.textContent = m2.title;
-      text.textContent = m2.text;
-      card.classList.remove('hidden');
-      mythIndex = (mythIndex + 1) % state.myths.length;
-    }
-  }, 8000);
 }
 
 // ─── Init ───
 async function init() {
-  setLiveStatus('loading');
-  showLoading(true);
+  setStatus('loading', 'Connecting to grid...');
 
-  await initClockView();
-  await initMapView();
-  await initHeatmapView();
+  initClock();
+  await initMap();
 
+  // Initial data load
   await updateAll();
 
-  // Poll every 5 minutes
+  // Poll every 5 min
   setInterval(updateAll, 5 * 60 * 1000);
-
-  // Update timestamp every 30s
-  setInterval(() => {
-    if (dataSource === 'live') {
-      const now = new Date();
-      footerStatus.textContent = `Updated ${now.toLocaleTimeString()}`;
-    }
-  }, 30000);
 }
 
 init();
