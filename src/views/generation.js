@@ -27,6 +27,7 @@ export function initGeneration() {
   });
   document.getElementById('btn-export-json').addEventListener('click', exportJson);
   document.getElementById('btn-export-csv').addEventListener('click', exportCsv);
+  document.getElementById('btn-save-db').addEventListener('click', saveToDatabase);
 }
 
 // ─── Appliance list ───
@@ -346,6 +347,50 @@ function exportCsv() {
     new Blob([[header, ...rows].join('\n')], { type: 'text/csv' }),
     'household_consumption.csv'
   );
+}
+
+// ─── Save to database ───
+
+async function saveToDatabase() {
+  if (!dataset) return;
+
+  const btn = document.getElementById('btn-save-db');
+  const status = document.getElementById('db-status');
+
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  status.textContent = '';
+  status.className = 'db-status';
+
+  // Pre-group into one object per day (much smaller payload than 131k flat rows)
+  const byDate = new Map();
+  for (const row of dataset) {
+    if (!byDate.has(row.date)) {
+      byDate.set(row.date, { date: row.date, day_of_week: row.day_of_week, watts_series: [] });
+    }
+    byDate.get(row.date).watts_series.push(row.watts_total);
+  }
+
+  try {
+    const res = await fetch('/api/households/1/consumption', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ days: [...byDate.values()] }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || res.statusText);
+    }
+    const { saved } = await res.json();
+    status.textContent = `Saved ${saved} days`;
+    status.classList.add('db-status--ok');
+  } catch (e) {
+    status.textContent = `Save failed: ${e.message}`;
+    status.classList.add('db-status--err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save to database';
+  }
 }
 
 function triggerDownload(blob, filename) {

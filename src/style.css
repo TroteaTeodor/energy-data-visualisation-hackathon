@@ -404,6 +404,26 @@ footer a:hover { color: var(--accent); }
 }
 .btn-export:hover { border-color: var(--accent); color: var(--accent); }
 
+.btn-save-db {
+  padding: 0.55rem 1rem;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  color: #0f172a;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+}
+.btn-save-db:hover { opacity: 0.85; }
+.btn-save-db:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.db-status { font-size: 0.75rem; align-self: center; }
+.db-status--ok  { color: #4ade80; }
+.db-status--err { color: #f87171; }
+
 /* ─── Responsive: Tablet & Mobile ─── */
 @media (max-width: 768px) {
   .app-layout {
